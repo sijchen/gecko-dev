@@ -56,7 +56,8 @@
         '../../../dom/base',
         '../../../content/media',
         '../../../media/mtransport',
-        '../trunk',
+        '../trunk/webrtc',
+        '../trunk/',
         '../trunk/webrtc/video_engine/include',
         '../trunk/webrtc/voice_engine/include',
         '../trunk/webrtc/modules/interface',
@@ -86,6 +87,8 @@
         './src/media-conduit/AudioConduit.cpp',
         './src/media-conduit/VideoConduit.h',
         './src/media-conduit/VideoConduit.cpp',
+        './src/media-conduit/WebrtcFakeVideoCodec.cpp',
+        './src/media-conduit/FakeVideoCodec.cpp',
         # Common
         './src/common/CommonTypes.h',
         './src/common/csf_common.h',
