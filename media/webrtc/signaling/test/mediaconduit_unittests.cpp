@@ -589,15 +589,8 @@ class TransportConduitTest : public ::testing::Test
 
     err = mVideoSession->ConfigureSendMediaCodec(
         send_vp8 ? &cinst1 : &cinst2);
-
-    ASSERT_EQ(mozilla::kMediaConduitNoError, err);
-    err = mVideoSession->ConfigureRecvMediaCodecs(rcvCodecList);
     ASSERT_EQ(mozilla::kMediaConduitNoError, err);
 
-    err = mVideoSession2->ConfigureSendMediaCodec(
-        send_vp8 ? &cinst1 : &cinst2);
-
-    ASSERT_EQ(mozilla::kMediaConduitNoError, err);
     err = mVideoSession2->ConfigureRecvMediaCodecs(rcvCodecList);
     ASSERT_EQ(mozilla::kMediaConduitNoError, err);
 
@@ -622,8 +615,9 @@ class TransportConduitTest : public ::testing::Test
     cerr << "    Done With The Testing  " << endl;
 
     cerr << "   **************************************************" << endl;
-
-
+    ASSERT_EQ(0, vidStatsGlobal.numFramesRenderedWrongly);
+    ASSERT_EQ(vidStatsGlobal.numRawFramesInserted,
+        vidStatsGlobal.numFramesRenderedSuccessfully);
   }
 
  void TestVideoConduitCodecAPI()
