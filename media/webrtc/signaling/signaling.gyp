@@ -11,6 +11,7 @@
 {
   'variables': {
     'chromium_code': 1,
+    'openh264' : '../../../openh264',
   },
 
   'target_defaults': {
@@ -66,6 +67,12 @@
         '../../../netwerk/srtp/src/include',
         '../../../netwerk/srtp/src/crypto/include',
         '../../../ipc/chromium/src',
+        '<@(openh264)/codec/api/svc',
+        '<@(openh264)/codec/common',
+        '<@(openh264)/codec/encoder/core/inc',
+        '<@(openh264)/codec/encoder/plus/inc',
+        '<@(openh264)/codec/decoder/core/inc',
+        '<@(openh264)/codec/decoder/plus/inc',
       ],
 
       #
@@ -89,6 +96,9 @@
         './src/media-conduit/VideoConduit.cpp',
         './src/media-conduit/WebrtcFakeVideoCodec.cpp',
         './src/media-conduit/FakeVideoCodec.cpp',
+        './src/media-conduit/WebrtcOpenH264VideoCodec.cpp',
+        './src/media-conduit/OpenH264VideoCodec.cpp',
+
         # Common
         './src/common/CommonTypes.h',
         './src/common/csf_common.h',
