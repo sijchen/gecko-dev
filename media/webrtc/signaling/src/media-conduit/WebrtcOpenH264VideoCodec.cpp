@@ -59,6 +59,36 @@ int32_t WebrtcOpenH264VideoEncoder::InitEncode(
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
+  SVCEncodingParam param;
+  memset(&param, 0, sizeof(param));
+
+  // Translate parameters.
+  param.iPicWidth = codecSettings->width;
+  param.iPicHeight = codecSettings->height;
+  param.iTargetBitrate = codecSettings->maxBitrate * 1000; // kbps -> bps
+  param.iTemporalLayerNum = 1;
+  param.iSpatialLayerNum = 1;
+  // TODO(ekr@rtfm.com). Scary conversion from unsigned char to float below.
+  param.fFrameRate = codecSettings->maxFramerate;
+  param.iInputCsp = videoFormatI420;
+
+  // Set up layers. Currently we have one layer.
+  auto layer = &param.sSpatialLayers[0];
+
+  layer->iVideoWidth = codecSettings->width;
+  layer->iVideoHeight = codecSettings->height;
+  layer->iQualityLayerNum = 1;
+  layer->iSpatialBitrate = param.iTargetBitrate;
+
+  // Based on guidance from Cisco.
+  layer->sSliceCfg.sSliceArgument.uiSliceMbNum[0] = 1000;
+  layer->sSliceCfg.sSliceArgument.uiSliceNum = 1;
+  layer->sSliceCfg.sSliceArgument.uiSliceSizeConstraint = 1000;
+
+  rv = encoder_->Initialize(&param, INIT_TYPE_PARAMETER_BASED);
+  if (rv)
+    return WEBRTC_VIDEO_CODEC_MEMORY;
+
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
