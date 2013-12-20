@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include <memory>
+
 #include "logging.h"
 #include "nspr.h"
 
@@ -31,11 +33,60 @@ namespace mozilla {
 
 MOZ_MTLOG_MODULE("openh264");
 
+struct EncodedFrame {
+ public:
+  EncodedFrame(uint8_t *buffer, uint32_t size, uint32_t length,
+               uint32_t width, uint32_t height, uint32_t timestamp,
+               webrtc::VideoFrameType frame_type) :
+      image_(buffer, size, length),
+      buffer_(buffer) {
+    image_._encodedWidth = width;
+    image_._encodedHeight = height;
+    image_._timeStamp = timestamp;
+    image_._frameType = frame_type;
+    image_._completeFrame = true;
+  }
+
+  static EncodedFrame* Create(const SFrameBSInfo& frame,
+                              uint32_t width, uint32_t height,
+                              uint32_t timestamp, webrtc::VideoFrameType frame_type) {
+    // Buffer up the data.
+    uint32_t length = 0;
+    std::vector<uint32_t> lengths;
+
+    for (int i=0; i<frame.iLayerNum; ++i) {
+      for (int j=0; j<frame.sLayerInfo[i].iNalCount; ++j) {
+        length += frame.sLayerInfo[i].iNalLengthInByte[j];
+        lengths.push_back(frame.sLayerInfo[i].iNalLengthInByte[j]);
+      }
+    }
+
+    ScopedDeleteArray<uint8_t> buffer(new uint8_t[length]);
+    uint8_t *tmp = buffer;
+
+    for (int i=0; i<frame.iLayerNum; ++i) {
+      // TODO(ekr@rtfm.com): This seems screwy, but I copied it from Cisco.
+      for (int j=0; j<frame.sLayerInfo[i].iNalCount; ++j) {
+        memcpy(tmp, frame.sLayerInfo[i].pBsBuf, lengths[i]);
+        tmp += lengths[i];
+      }
+    }
+
+    return new EncodedFrame(buffer.forget(), length, length,
+                            width, height, timestamp, frame_type);
+  }
+
+  webrtc::EncodedImage& image() { return image_; }
+
+ private:
+  webrtc::EncodedImage image_;
+  ScopedDeleteArray<uint8_t> buffer_;
+};
+
 // Encoder.
 WebrtcOpenH264VideoEncoder::WebrtcOpenH264VideoEncoder()
-  : timestamp_(0),
-    callback_(nullptr),
-    mutex_("WebrtcOpenH264VideoEncoder") {
+    : callback_(nullptr),
+      mutex_("WebrtcOpenH264VideoEncoder") {
   nsIThread* thread;
 
   nsresult rv = NS_NewNamedThread("encoder-thread", &thread);
@@ -153,6 +204,23 @@ int32_t WebrtcOpenH264VideoEncoder::Encode(
       break;
   }
 
+  ScopedDeletePtr<EncodedFrame> encoded_frame(
+      EncodedFrame::Create(encoded,
+                           inputImage.width(),
+                           inputImage.height(),
+                           inputImage.timestamp(),
+                           (*frame_types)[0]));
+
+  MutexAutoLock lock(mutex_);
+  frames_.push(encoded_frame.forget());
+
+  RUN_ON_THREAD(thread_,
+                WrapRunnable(
+                    // RefPtr keeps object alive.
+                    nsRefPtr<WebrtcOpenH264VideoEncoder>(this),
+                    &WebrtcOpenH264VideoEncoder::EmitFrames),
+                NS_DISPATCH_NORMAL);
+
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
@@ -160,25 +228,11 @@ void WebrtcOpenH264VideoEncoder::EmitFrames() {
   MutexAutoLock lock(mutex_);
 
   while(!frames_.empty()) {
-    EncodedFrame *frame = &frames_.front();
-    EmitFrame(frame);
+    MOZ_MTLOG(ML_DEBUG, "Emitting frame");
+    ScopedDeletePtr<EncodedFrame> frame(frames_.front());
+    callback_->Encoded(frame->image(), NULL, NULL);
     frames_.pop();
   }
-}
-
-void WebrtcOpenH264VideoEncoder::EmitFrame(EncodedFrame *frame) {
-  webrtc::EncodedImage encoded_image;
-  encoded_image._encodedWidth = frame->width_;
-  encoded_image._encodedHeight = frame->height_;
-  encoded_image._timeStamp = frame->timestamp_;  // TODO(ekr@rtfm.com): Fix times
-  encoded_image.capture_time_ms_ = 0;
-  encoded_image._frameType = webrtc::kKeyFrame;
-  encoded_image._buffer=reinterpret_cast<uint8_t *>(frame);
-  encoded_image._length = sizeof(EncodedFrame);
-  encoded_image._size = sizeof(EncodedFrame);
-  encoded_image._completeFrame = true;
-
-  callback_->Encoded(encoded_image, NULL, NULL);
 }
 
 int32_t WebrtcOpenH264VideoEncoder::RegisterEncodeCompleteCallback(
@@ -240,32 +294,6 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
     const webrtc::CodecSpecificInfo*
     codecSpecificInfo,
     int64_t renderTimeMs) {
-  if (sizeof(EncodedFrame) != inputImage._length)
-    return WEBRTC_VIDEO_CODEC_ERROR;
-
-  EncodedFrame* frame = reinterpret_cast<EncodedFrame*>(
-      inputImage._buffer);
-  size_t len = frame->width_ * frame->height_;
-  ScopedDeleteArray<uint8_t> data(new uint8_t[len]);
-  memset(data.get(), frame->value_, len);
-
-  MutexAutoLock lock(mutex_);
-  if (decoded_image_.CreateFrame(len, data,
-                                 len/4, data,
-                                 len/4, data,
-                                 frame->width_, frame->height_,
-                                 frame->width_,
-                                 frame->width_/2,
-                                 frame->width_/2))
-    return WEBRTC_VIDEO_CODEC_ERROR;
-  decoded_image_.set_timestamp(inputImage._timeStamp);
-
-  RUN_ON_THREAD(thread_,
-                // Shared pointer keeps the object live.
-                WrapRunnable(nsRefPtr<WebrtcOpenH264VideoDecoder>(this),
-                             &WebrtcOpenH264VideoDecoder::RunCallback),
-                NS_DISPATCH_NORMAL);
-
   return WEBRTC_VIDEO_CODEC_OK;
 }
 

@@ -31,12 +31,7 @@ class ISVCDecoder;
 
 namespace mozilla {
 
-struct EncodedFrame {
-  uint32_t width_;
-  uint32_t height_;
-  uint8_t value_;
-  uint32_t timestamp_;
-};
+class EncodedFrame;
 
 class WebrtcOpenH264VideoEncoder : public WebrtcVideoEncoder {
  public:
@@ -70,9 +65,8 @@ class WebrtcOpenH264VideoEncoder : public WebrtcVideoEncoder {
 
   ISVCEncoder *encoder_;
   nsCOMPtr<nsIThread> thread_;
-  std::queue<EncodedFrame> frames_;
+  std::queue<EncodedFrame*> frames_;
   uint32_t max_payload_size_;
-  uint32_t timestamp_;
   webrtc::EncodedImageCallback* callback_;
   mozilla::Mutex mutex_;
 };
