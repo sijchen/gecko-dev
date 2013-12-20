@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "CSFLog.h"
+#include "logging.h"
 #include "nspr.h"
 
 #include "codec_def.h"
@@ -22,12 +22,14 @@
 #include "codec_api.h"
 #include "param_svc.h"
 
+
 #include "runnable_utils.h"
 
 #include "WebrtcOpenH264VideoCodec.h"
 
-
 namespace mozilla {
+
+MOZ_MTLOG_MODULE("openh264");
 
 // Encoder.
 WebrtcOpenH264VideoEncoder::WebrtcOpenH264VideoEncoder()
@@ -61,6 +63,13 @@ int32_t WebrtcOpenH264VideoEncoder::InitEncode(
 
   SVCEncodingParam param;
   memset(&param, 0, sizeof(param));
+
+  MOZ_MTLOG(ML_INFO, "Initializing encoder at "
+	    << codecSettings->width
+	    << "x"
+	    << codecSettings->height
+	    << "@"
+	    << static_cast<int>(codecSettings->maxFramerate));
 
   // Translate parameters.
   param.iPicWidth = codecSettings->width;
@@ -97,24 +106,52 @@ int32_t WebrtcOpenH264VideoEncoder::Encode(
     const webrtc::I420VideoFrame& inputImage,
     const webrtc::CodecSpecificInfo* codecSpecificInfo,
     const std::vector<webrtc::VideoFrameType>* frame_types) {
-  EncodedFrame encoded;
+  MOZ_MTLOG(ML_DEBUG, "Encoding frame");
 
-  const uint8_t* buffer = inputImage.buffer(webrtc::kYPlane);
-  encoded.width_ = inputImage.width();
-  encoded.height_ = inputImage.height();
-  encoded.value_ = *buffer;
-  encoded.timestamp_ = timestamp_;
-  timestamp_ += 90000 / 30;
+  MOZ_ASSERT(!frame_types->empty());
+  if (frame_types->empty())
+    return WEBRTC_VIDEO_CODEC_ERROR;
+  // TODO(ekr@rtfm.com): Actually handle frame type.
 
-  MutexAutoLock lock(mutex_);
-  frames_.push(encoded);
+  SFrameBSInfo encoded;
+  SSourcePicture src;
 
-  RUN_ON_THREAD(thread_,
-                WrapRunnable(
-                    // RefPtr keeps object alive.
-                    nsRefPtr<WebrtcOpenH264VideoEncoder>(this),
-                    &WebrtcOpenH264VideoEncoder::EmitFrames),
-                NS_DISPATCH_NORMAL);
+  src.iColorFormat = videoFormatI420;
+  src.iStride[0] = inputImage.stride(webrtc::kYPlane);
+  src.pData[0] = reinterpret_cast<unsigned char*>(
+      const_cast<uint8_t *>(inputImage.buffer(webrtc::kYPlane)));
+  src.iStride[1] = inputImage.stride(webrtc::kUPlane);
+  src.pData[1] = reinterpret_cast<unsigned char*>(
+      const_cast<uint8_t *>(inputImage.buffer(webrtc::kUPlane)));
+  src.iStride[2] = inputImage.stride(webrtc::kVPlane);
+  src.pData[2] = reinterpret_cast<unsigned char*>(
+      const_cast<uint8_t *>(inputImage.buffer(webrtc::kVPlane)));
+  src.iStride[3] = 0;
+  src.pData[3] = nullptr;
+  src.iPicWidth = inputImage.width();
+  src.iPicHeight = inputImage.height();
+
+  const SSourcePicture* pics = &src;
+
+  int type = encoder_->EncodeFrame(&pics, 1, &encoded);
+
+  // Translate int to enum
+  switch (type) {
+    case videoFrameTypeIDR:
+    case videoFrameTypeI:
+    case videoFrameTypeP:
+    case videoFrameTypeSkip:
+    case videoFrameTypeIPMixed:
+      break;
+    case videoFrameTypeInvalid:
+      MOZ_MTLOG(ML_ERROR, "Couldn't encode frame. Error = " << type);
+      return WEBRTC_VIDEO_CODEC_ERROR;
+      break;
+    default:
+      // The API is defined as returning a type.
+      MOZ_CRASH();
+      break;
+  }
 
   return WEBRTC_VIDEO_CODEC_OK;
 }
