@@ -308,16 +308,54 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
     int64_t renderTimeMs) {
   SBufferInfo decoded;
   memset(&decoded, 0, sizeof(decoded));
-  void *pData[3] = {nullptr, nullptr, nullptr};
+  void *data[3] = {nullptr, nullptr, nullptr};
   MOZ_MTLOG(ML_DEBUG, "Decoding frame input length=" << inputImage._length);
   int rv = decoder_->DecodeFrame(inputImage._buffer,
                                  inputImage._length,
-                                 pData,
+                                 data,
                                  &decoded);
   if (rv) {
     MOZ_MTLOG(ML_ERROR, "Decoding error rv=" << rv);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
+
+
+  MutexAutoLock lock(mutex_);
+  int width;
+  int height;
+  int ystride;
+  int uvstride;
+
+  if (decoded.eBufferProperty == BUFFER_HOST) {
+    width = decoded.UsrData.sSystemBuffer.iWidth;
+    height = decoded.UsrData.sSystemBuffer.iHeight;
+    ystride = decoded.UsrData.sSystemBuffer.iStride[0];
+    uvstride = decoded.UsrData.sSystemBuffer.iStride[1];
+  } else {
+    // TODO(ekr@rtfm.com): How can this happen
+    MOZ_CRASH();
+    width = decoded.UsrData.sVideoBuffer.iSurfaceWidth;
+    height = decoded.UsrData.sVideoBuffer.iSurfaceHeight;
+  }
+  int len = width * height;
+
+  if (len) {
+    if (decoded_image_.CreateFrame(len, static_cast<uint8_t *>(data[0]),
+                                   len/4, static_cast<uint8_t *>(data[1]),
+                                   len/4, static_cast<uint8_t *>(data[2]),
+                                   width, height,
+                                   ystride, uvstride, uvstride
+                                   ))
+      return WEBRTC_VIDEO_CODEC_ERROR;
+    decoded_image_.set_timestamp(inputImage._timeStamp);
+
+    RUN_ON_THREAD(thread_,
+                  // Shared pointer keeps the object live.
+                  WrapRunnable(nsRefPtr<WebrtcOpenH264VideoDecoder>(this),
+                               &WebrtcOpenH264VideoDecoder::RunCallback),
+                  NS_DISPATCH_NORMAL);
+  }
+
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
