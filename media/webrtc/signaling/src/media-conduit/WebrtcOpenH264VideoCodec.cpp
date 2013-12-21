@@ -228,8 +228,8 @@ void WebrtcOpenH264VideoEncoder::EmitFrames() {
   MutexAutoLock lock(mutex_);
 
   while(!frames_.empty()) {
-    MOZ_MTLOG(ML_DEBUG, "Emitting frame");
     ScopedDeletePtr<EncodedFrame> frame(frames_.front());
+    MOZ_MTLOG(ML_DEBUG, "Emitting frame length=" << frame->image()._length);
     callback_->Encoded(frame->image(), NULL, NULL);
     frames_.pop();
   }
@@ -284,6 +284,19 @@ int32_t WebrtcOpenH264VideoDecoder::InitDecode(
   if (rv) {
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
+
+  SDecodingParam param;
+  memset(&param, 0, sizeof(param));
+  param.iOutputColorFormat = videoFormatI420;
+  param.uiTargetDqLayer = UCHAR_MAX;  // TODO(ekr@rtfm.com): correct?
+  param.uiEcActiveFlag = 1; // Error concealment on.
+  param.sVideoProperty.eVideoBsType = VIDEO_BITSTREAM_DEFAULT;
+
+  long lrv = decoder_->Initialize(&param, INIT_TYPE_PARAMETER_BASED);
+  if (lrv) {
+    return WEBRTC_VIDEO_CODEC_ERROR;
+  }
+
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
@@ -294,6 +307,18 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
     const webrtc::CodecSpecificInfo*
     codecSpecificInfo,
     int64_t renderTimeMs) {
+  SBufferInfo decoded;
+  memset(&decoded, 0, sizeof(decoded));
+  void *pData[3] = {nullptr, nullptr, nullptr};
+  MOZ_MTLOG(ML_DEBUG, "Decoding frame input length=" << inputImage._length);
+  int rv = decoder_->DecodeFrame(inputImage._buffer,
+                                 inputImage._length,
+                                 pData,
+                                 &decoded);
+  if (rv) {
+    MOZ_MTLOG(ML_ERROR, "Decoding error rv=" << rv);
+    return WEBRTC_VIDEO_CODEC_ERROR;
+  }
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
