@@ -55,9 +55,10 @@ struct EncodedFrame {
     std::vector<uint32_t> lengths;
 
     for (int i=0; i<frame.iLayerNum; ++i) {
+      lengths.push_back(0);
       for (int j=0; j<frame.sLayerInfo[i].iNalCount; ++j) {
+        lengths[i] += frame.sLayerInfo[i].iNalLengthInByte[j];
         length += frame.sLayerInfo[i].iNalLengthInByte[j];
-        lengths.push_back(frame.sLayerInfo[i].iNalLengthInByte[j]);
       }
     }
 
@@ -66,10 +67,8 @@ struct EncodedFrame {
 
     for (int i=0; i<frame.iLayerNum; ++i) {
       // TODO(ekr@rtfm.com): This seems screwy, but I copied it from Cisco.
-      for (int j=0; j<frame.sLayerInfo[i].iNalCount; ++j) {
-        memcpy(tmp, frame.sLayerInfo[i].pBsBuf, lengths[i]);
-        tmp += lengths[i];
-      }
+      memcpy(tmp, frame.sLayerInfo[i].pBsBuf, lengths[i]);
+      tmp += lengths[i];
     }
 
     return new EncodedFrame(buffer.forget(), length, length,
