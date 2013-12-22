@@ -270,9 +270,9 @@ nsresult PeerConnectionCtx::Initialize() {
   // Only adding codecs supported
   //codecMask |= VCM_CODEC_RESOURCE_H263;
 
-  //codecMask |= VCM_CODEC_RESOURCE_H264;
+  codecMask |= VCM_CODEC_RESOURCE_H264;
   codecMask |= VCM_CODEC_RESOURCE_VP8;
-  //codecMask |= VCM_CODEC_RESOURCE_I420;
+  // codecMask |= VCM_CODEC_RESOURCE_I420;
   mCCM->setVideoCodecs(codecMask);
 
   ccAppReadyToStartLock = PR_NewLock();

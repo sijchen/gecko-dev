@@ -67,14 +67,23 @@ class VideoSendAndReceive
 {
 public:
   VideoSendAndReceive():width(640),
-                        height(480)
+                        height(480),
+			rate(30)
   {
   }
 
   ~VideoSendAndReceive()
   {
   }
-
+ 
+  void SetDimensions(int w, int h)
+  {
+    width = w;
+    height = h;
+  }
+  void SetRate(int r) {
+    rate = r;
+  }
   void Init(mozilla::RefPtr<mozilla::VideoSessionConduit> aSession)
   {
         mSession = aSession;
@@ -95,7 +104,7 @@ public:
                                 height,
                                 mozilla::kVideoI420,
                                 0);
-      PR_Sleep(PR_MillisecondsToInterval(33));
+      PR_Sleep(PR_MillisecondsToInterval(1000/rate));
       vidStatsGlobal.numRawFramesInserted++;
       numFrames--;
     } while(numFrames >= 0);
@@ -105,6 +114,7 @@ public:
 private:
 mozilla::RefPtr<mozilla::VideoSessionConduit> mSession;
 int width, height;
+int rate;
 };
 
 

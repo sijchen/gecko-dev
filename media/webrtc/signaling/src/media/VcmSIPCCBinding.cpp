@@ -11,6 +11,7 @@
 #include "CSFVideoTermination.h"
 #include "MediaConduitErrors.h"
 #include "MediaConduitInterface.h"
+#include "OpenH264VideoCodec.h"
 #include "MediaPipeline.h"
 #include "VcmSIPCCBinding.h"
 #include "csf_common.h"
@@ -56,6 +57,11 @@ extern void lsm_stop_continuous_tone_timer(void);
 }//end extern "C"
 
 static const char* logTag = "VcmSipccBinding";
+
+static int vcmEnsureExternalCodec(
+  const mozilla::RefPtr<mozilla::VideoSessionConduit>& conduit,
+  mozilla::VideoCodecConfig* config,
+  bool send);
 
 // Cloned from ccapi.h
 typedef enum {
@@ -1649,6 +1655,8 @@ static int vcmRxStartICE_m(cc_mcapid_t mcap_id,
         payloads[i].remote_rtp_pt,
         ccsdpCodecName(payloads[i].codec_type),
         payloads[i].video.rtcp_fb_types);
+      if (vcmEnsureExternalCodec(conduit, config_raw, false))
+        return VCM_ERROR;
       configs.push_back(config_raw);
     }
 
@@ -2164,6 +2172,33 @@ int vcmTxStart(cc_mcapid_t mcap_id,
 }
 
 
+/*
+ * Add an external encoder, maybe...
+ */
+static int vcmEnsureExternalCodec(
+    const mozilla::RefPtr<mozilla::VideoSessionConduit>& conduit,
+    mozilla::VideoCodecConfig* config,
+    bool send)
+{
+  MediaConduitErrorCode err = kMediaConduitNoError;
+
+  if (config->mName == "I420") {
+    if (send) {
+      conduit->SetExternalSendCodec(config->mType,
+                                    mozilla::OpenH264VideoCodec::CreateEncoder());
+    } else {
+      conduit->SetExternalRecvCodec(config->mType,
+                                    mozilla::OpenH264VideoCodec::CreateDecoder());
+    }
+  }
+
+  if (err != kMediaConduitNoError) {
+    return VCM_ERROR;
+  }
+
+  return 0;
+}
+
 /**
  *  start tx stream
  *  Same concept as vcmTxStart but for ICE/PeerConnection-based flows
@@ -2301,7 +2336,13 @@ static int vcmTxStartICE_m(cc_mcapid_t mcap_id,
       mozilla::VideoSessionConduit::Create(static_cast<VideoSessionConduit *>(rx_conduit.get()));
 
     // Find the appropriate media conduit config
-    if (!conduit || conduit->ConfigureSendMediaCodec(config))
+    if (!conduit)
+      return VCM_ERROR;
+
+    if (vcmEnsureExternalCodec(conduit, config_raw, true))
+      return VCM_ERROR;
+
+    if (conduit->ConfigureSendMediaCodec(config))
       return VCM_ERROR;
 
     pc.impl()->media()->AddConduit(level, false, conduit);
