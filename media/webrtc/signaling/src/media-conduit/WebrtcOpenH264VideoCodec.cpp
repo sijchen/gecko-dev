@@ -337,12 +337,12 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
     width = decoded.UsrData.sVideoBuffer.iSurfaceWidth;
     height = decoded.UsrData.sVideoBuffer.iSurfaceHeight;
   }
-  int len = width * height;
+  int len = ystride * height;
 
   if (len) {
     if (decoded_image_.CreateFrame(len, static_cast<uint8_t *>(data[0]),
-                                   len/4, static_cast<uint8_t *>(data[1]),
-                                   len/4, static_cast<uint8_t *>(data[2]),
+                                   uvstride*height/2, static_cast<uint8_t *>(data[1]),
+                                   uvstride*height/2, static_cast<uint8_t *>(data[2]),
                                    width, height,
                                    ystride, uvstride, uvstride
                                    ))
