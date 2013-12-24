@@ -69,6 +69,8 @@ class WebrtcOpenH264VideoEncoder : public WebrtcVideoEncoder {
   uint32_t max_payload_size_;
   webrtc::EncodedImageCallback* callback_;
   mozilla::Mutex mutex_;
+    
+  FILE* m_pEncStrmFile;
 };
 
 

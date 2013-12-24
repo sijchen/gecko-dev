@@ -12,6 +12,7 @@
 #include "codec_api.h"
 
 #include <iostream>
+#include <sys/time.h>
 
 #include <mozilla/Scoped.h>
 #include "VideoConduit.h"
@@ -31,6 +32,8 @@
 
 namespace mozilla {
 
+#define OUTPUT_BITSTREAM
+    
 MOZ_MTLOG_MODULE("openh264");
 
 struct EncodedFrame {
@@ -46,10 +49,18 @@ struct EncodedFrame {
     image_._frameType = frame_type;
     image_._completeFrame = true;
   }
-
+#ifdef OUTPUT_BITSTREAM
   static EncodedFrame* Create(const SFrameBSInfo& frame,
                               uint32_t width, uint32_t height,
-                              uint32_t timestamp, webrtc::VideoFrameType frame_type) {
+                              uint32_t timestamp, webrtc::VideoFrameType frame_type,
+                              FILE* pEncStrmFile)
+#else
+    static EncodedFrame* Create(const SFrameBSInfo& frame,
+                                uint32_t width, uint32_t height,
+                                uint32_t timestamp, webrtc::VideoFrameType frame_type)
+#endif
+    
+    {
     // Buffer up the data.
     uint32_t length = 0;
     std::vector<uint32_t> lengths;
@@ -70,7 +81,11 @@ struct EncodedFrame {
       memcpy(tmp, frame.sLayerInfo[i].pBsBuf, lengths[i]);
       tmp += lengths[i];
     }
-
+      
+#ifdef OUTPUT_BITSTREAM
+     fwrite(((unsigned char *)buffer), 1, length, pEncStrmFile);
+#endif
+      
     return new EncodedFrame(buffer.forget(), length, length,
                             width, height, timestamp, frame_type);
   }
@@ -147,7 +162,14 @@ int32_t WebrtcOpenH264VideoEncoder::InitEncode(
   rv = encoder_->Initialize(&param, INIT_TYPE_PARAMETER_BASED);
   if (rv)
     return WEBRTC_VIDEO_CODEC_MEMORY;
-
+#ifdef OUTPUT_BITSTREAM
+  static int iEncoderIdx = 0;
+  char cFileName[100];
+    std::snprintf(cFileName, sizeof(cFileName), "h264encstrm_enc%d.264", iEncoderIdx);
+  m_pEncStrmFile = fopen(cFileName,"ab+");
+  iEncoderIdx++;
+#endif
+    
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
@@ -183,8 +205,23 @@ int32_t WebrtcOpenH264VideoEncoder::Encode(
 
   const SSourcePicture* pics = &src;
 
+#ifdef GETTIMING
+    FILE* fenctrace = fopen("h264encoder.txt","a+");
+    struct timeval tv;
+    
+    time_t curtime1, curtime2,curtime3;
+    gettimeofday(&tv, NULL);
+    curtime1=tv.tv_usec;
+    fprintf(fenctrace, "BeforeEncoder: %ld\t", curtime1);
+#endif
+    
   int type = encoder_->EncodeFrame(&pics, 1, &encoded);
-
+    
+#ifdef GETTIMING
+    gettimeofday(&tv, NULL);
+    curtime2=tv.tv_usec;
+    fprintf(fenctrace, "AfterEncoder: %ld\t", curtime2);
+#endif
   // Translate int to enum
   switch (type) {
     case videoFrameTypeIDR:
@@ -202,14 +239,31 @@ int32_t WebrtcOpenH264VideoEncoder::Encode(
       MOZ_CRASH();
       break;
   }
-
+#ifdef OUTPUT_BITSTREAM
   ScopedDeletePtr<EncodedFrame> encoded_frame(
       EncodedFrame::Create(encoded,
                            inputImage.width(),
                            inputImage.height(),
                            inputImage.timestamp(),
-                           (*frame_types)[0]));
+                           (*frame_types)[0],
+                                              m_pEncStrmFile));
+#else
+    ScopedDeletePtr<EncodedFrame> encoded_frame(
+                                                EncodedFrame::Create(encoded,
+                                                                     inputImage.width(),
+                                                                     inputImage.height(),
+                                                                     inputImage.timestamp(),
+                                                                     (*frame_types)[0]));
+#endif
+    
+#ifdef GETTIMING
 
+    gettimeofday(&tv, NULL);
+    curtime3=tv.tv_usec;
+        fprintf(fenctrace, "AfterEmit: %ld\t EncoderDelta(ms): %ld\n", curtime3, (curtime2-curtime1)/1000);
+        fclose(fenctrace);
+#endif
+    
   MutexAutoLock lock(mutex_);
   frames_.push(encoded_frame.forget());
 
@@ -219,6 +273,7 @@ int32_t WebrtcOpenH264VideoEncoder::Encode(
                     nsRefPtr<WebrtcOpenH264VideoEncoder>(this),
                     &WebrtcOpenH264VideoEncoder::EmitFrames),
                 NS_DISPATCH_NORMAL);
+    
 
   return WEBRTC_VIDEO_CODEC_OK;
 }
@@ -242,7 +297,11 @@ int32_t WebrtcOpenH264VideoEncoder::RegisterEncodeCompleteCallback(
 }
 
 int32_t WebrtcOpenH264VideoEncoder::Release() {
-  return WEBRTC_VIDEO_CODEC_OK;
+#ifdef OUTPUT_BITSTREAM
+  if (m_pEncStrmFile)
+    fclose(m_pEncStrmFile);
+#endif
+    return WEBRTC_VIDEO_CODEC_OK;
 }
 
 int32_t WebrtcOpenH264VideoEncoder::SetChannelParameters(uint32_t packetLoss,
@@ -356,6 +415,15 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
                   NS_DISPATCH_NORMAL);
   }
 
+     FILE* fdecstrm = fopen("h264dec.yuv","ab+");
+     fwrite(((unsigned char *)data[0]), 1, ystride*height, fdecstrm);
+    fwrite(((unsigned char *)data[1]), 1, uvstride*height/2, fdecstrm);
+    fwrite(((unsigned char *)data[2]), 1, uvstride*height/2, fdecstrm);
+     fclose(fdecstrm);
+    FILE* fdectrace = fopen("h264dec.txt","a+");
+    fprintf(fdectrace, "Decoder: %dx%d, Ystride:%d\n", width,height,ystride);
+    fclose(fdectrace);
+    
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
