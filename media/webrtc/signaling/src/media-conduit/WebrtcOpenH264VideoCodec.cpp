@@ -162,23 +162,38 @@ int32_t WebrtcOpenH264VideoEncoder::Encode(
     return WEBRTC_VIDEO_CODEC_ERROR;
   // TODO(ekr@rtfm.com): Actually handle frame type.
 
+  webrtc::I420VideoFrame* imageCopy = new webrtc::I420VideoFrame();
+  imageCopy->CopyFrame(inputImage);
+
+  RUN_ON_THREAD(thread_,
+      WrapRunnable(nsRefPtr<WebrtcOpenH264VideoEncoder>(this),
+		   &WebrtcOpenH264VideoEncoder::Encode_w,
+		   imageCopy, (*frame_types)[0]),
+		NS_DISPATCH_NORMAL);
+
+  return WEBRTC_VIDEO_CODEC_OK;
+}
+
+void WebrtcOpenH264VideoEncoder::Encode_w(
+    webrtc::I420VideoFrame* inputImage,
+    webrtc::VideoFrameType frame_type) {
   SFrameBSInfo encoded;
   SSourcePicture src;
 
   src.iColorFormat = videoFormatI420;
-  src.iStride[0] = inputImage.stride(webrtc::kYPlane);
+  src.iStride[0] = inputImage->stride(webrtc::kYPlane);
   src.pData[0] = reinterpret_cast<unsigned char*>(
-      const_cast<uint8_t *>(inputImage.buffer(webrtc::kYPlane)));
-  src.iStride[1] = inputImage.stride(webrtc::kUPlane);
+      const_cast<uint8_t *>(inputImage->buffer(webrtc::kYPlane)));
+  src.iStride[1] = inputImage->stride(webrtc::kUPlane);
   src.pData[1] = reinterpret_cast<unsigned char*>(
-      const_cast<uint8_t *>(inputImage.buffer(webrtc::kUPlane)));
-  src.iStride[2] = inputImage.stride(webrtc::kVPlane);
+      const_cast<uint8_t *>(inputImage->buffer(webrtc::kUPlane)));
+  src.iStride[2] = inputImage->stride(webrtc::kVPlane);
   src.pData[2] = reinterpret_cast<unsigned char*>(
-      const_cast<uint8_t *>(inputImage.buffer(webrtc::kVPlane)));
+      const_cast<uint8_t *>(inputImage->buffer(webrtc::kVPlane)));
   src.iStride[3] = 0;
   src.pData[3] = nullptr;
-  src.iPicWidth = inputImage.width();
-  src.iPicHeight = inputImage.height();
+  src.iPicWidth = inputImage->width();
+  src.iPicHeight = inputImage->height();
 
   const SSourcePicture* pics = &src;
 
@@ -199,7 +214,7 @@ int32_t WebrtcOpenH264VideoEncoder::Encode(
       break;
     case videoFrameTypeInvalid:
       MOZ_MTLOG(ML_ERROR, "Couldn't encode frame. Error = " << type);
-      return WEBRTC_VIDEO_CODEC_ERROR;
+      return;
       break;
     default:
       // The API is defined as returning a type.
@@ -209,22 +224,13 @@ int32_t WebrtcOpenH264VideoEncoder::Encode(
 
   ScopedDeletePtr<EncodedFrame> encoded_frame(
       EncodedFrame::Create(encoded,
-                           inputImage.width(),
-                           inputImage.height(),
-                           inputImage.timestamp(),
-                           (*frame_types)[0]));
+                           inputImage->width(),
+                           inputImage->height(),
+                           inputImage->timestamp(),
+			   frame_type));
+  delete inputImage;
 
-  MutexAutoLock lock(mutex_);
-  frames_.push(encoded_frame.forget());
-
-  RUN_ON_THREAD(thread_,
-                WrapRunnable(
-                    // RefPtr keeps object alive.
-                    nsRefPtr<WebrtcOpenH264VideoEncoder>(this),
-                    &WebrtcOpenH264VideoEncoder::EmitFrames),
-                NS_DISPATCH_NORMAL);
-
-  return WEBRTC_VIDEO_CODEC_OK;
+  callback_->Encoded(encoded_frame->image(), NULL, NULL);
 }
 
 void WebrtcOpenH264VideoEncoder::EmitFrames() {
