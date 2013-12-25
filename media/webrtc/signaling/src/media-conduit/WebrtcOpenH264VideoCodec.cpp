@@ -33,7 +33,7 @@
 namespace mozilla {
 
 //#define OUTPUT_BITSTREAM
-#define GETTIMING
+#define GET_TIMING
 
     
 MOZ_MTLOG_MODULE("openh264");
@@ -55,7 +55,8 @@ struct EncodedFrame {
   static EncodedFrame* Create(const SFrameBSInfo& frame,
                               uint32_t width, uint32_t height,
                               uint32_t timestamp, webrtc::VideoFrameType frame_type,
-                              int iEncoderIdx) //FILE* pEncStrmFile)
+                              //int iEncoderIdx)
+    FILE* pEncStrmFile)
 #else
     static EncodedFrame* Create(const SFrameBSInfo& frame,
                                 uint32_t width, uint32_t height,
@@ -85,13 +86,16 @@ struct EncodedFrame {
     }
       
 #ifdef OUTPUT_BITSTREAM
-          char cFileName[100];
-        std::snprintf(cFileName, sizeof(cFileName), "h264encstrm_enc%d.264", iEncoderIdx);
-        FILE* pEncStrmFile = fopen(cFileName,"ab+");
+    //char cFileName[100];
+    //std::snprintf(cFileName, sizeof(cFileName), "h264encstrm_enc%d.264", iEncoderIdx);
+    //FILE* pEncStrmFile = fopen(cFileName,"ab+");
         
-     fwrite(((unsigned char *)buffer), 1, length, pEncStrmFile);
-        fclose(pEncStrmFile);
+    //if not open the file again,
+    //the following code cannot write out bit stream correctly
+    fwrite(((unsigned char *)buffer), 1, length, pEncStrmFile);
+    //fclose(pEncStrmFile);
         
+        //the following code can write out bit stream correctly
         FILE* ftmp = fopen("encstream.264","ab+");
              fwrite(((unsigned char *)buffer), 1, length, ftmp);
         fclose(ftmp);
@@ -150,7 +154,7 @@ int32_t WebrtcOpenH264VideoEncoder::InitEncode(
   // Translate parameters.
   param.iPicWidth = codecSettings->width;
   param.iPicHeight = codecSettings->height;
-  param.iTargetBitrate = codecSettings->maxBitrate * 1000;
+  param.iTargetBitrate = codecSettings->startBitrate * 1000;
   param.iTemporalLayerNum = 1;
   param.iSpatialLayerNum = 1;
   // TODO(ekr@rtfm.com). Scary conversion from unsigned char to float below.
@@ -180,13 +184,25 @@ int32_t WebrtcOpenH264VideoEncoder::InitEncode(
   char cFileName[100];
     
 #ifdef OUTPUT_BITSTREAM
- // std::snprintf(cFileName, sizeof(cFileName), "h264encstrm_enc%d.264", iEncoderIdx);
- // m_pEncStrmFile = fopen(cFileName,"ab+");
+  std::snprintf(cFileName, sizeof(cFileName), "h264encstrm_enc%d.264", iEncoderIdx);
+  m_pEncStrmFile = fopen(cFileName,"ab+");
 
 #endif
-#ifdef GETTIMING
-    //std::snprintf(cFileName, sizeof(cFileName), "h264enctrace_enc%d.txt", iEncoderIdx);
-    //m_pEncTraceFile = fopen(cFileName,"wb+");
+#ifdef GET_TIMING
+  //std::snprintf(cFileName, sizeof(cFileName), "h264enctrace_enc%d.txt", iEncoderIdx);
+  //m_pEncTraceFile = fopen(cFileName,"w+");
+#endif
+#if 0
+   std::snprintf(cFileName, sizeof(cFileName), "h264encparam_enc%d.txt", iEncoderIdx);
+    FILE* ftmp = fopen(cFileName,"a+");
+    fprintf(ftmp, "Encoder\t%d\t:\
+            InputParam:%dfps@(%d,%d,%d)kbps\
+            Encoding:\t%ffps@%dbps\
+            EncodingLayer:\t%dx%d@%ffps@%dbps\n", iEncoderIdx,
+            codecSettings->maxFramerate,codecSettings->startBitrate, codecSettings->minBitrate, codecSettings->maxBitrate,
+            param.fFrameRate, param.iTargetBitrate,
+            layer->iVideoWidth, layer->iVideoHeight, layer->fFrameRate, layer->iSpatialBitrate);
+    fclose(ftmp);
 #endif
 //#endif
   m_iEncoderIdx=iEncoderIdx;
@@ -241,7 +257,7 @@ void WebrtcOpenH264VideoEncoder::Encode_w(
 
   const SSourcePicture* pics = &src;
 
-#ifdef GETTIMING
+#ifdef GET_TIMING
     char cFileName[100];
     std::snprintf(cFileName, sizeof(cFileName), "h264encoder_enc%d.txt", m_iEncoderIdx);
     FILE* fenctrace = fopen(cFileName,"a+");
@@ -258,7 +274,7 @@ void WebrtcOpenH264VideoEncoder::Encode_w(
   PRIntervalTime t1 = PR_IntervalNow();
   MOZ_MTLOG(ML_DEBUG, "Encoding time: " << PR_IntervalToMilliseconds(t1 - t0) << "ms");
     
-#ifdef GETTIMING
+#ifdef GET_TIMING
     gettimeofday(&tv, NULL);
     curtime2=tv.tv_usec;
     fprintf(fenctrace, "AfterEncoder(tv_sec,tv_usec): \t%ld\t%ld\t", tv.tv_sec, tv.tv_usec);
@@ -290,8 +306,8 @@ void WebrtcOpenH264VideoEncoder::Encode_w(
                            inputImage->height(),
                            inputImage->timestamp(),
                            frame_type,
-                           m_iEncoderIdx));
-                                           //   m_pEncStrmFile));
+                           //m_iEncoderIdx));
+                            m_pEncStrmFile));
 #else
     ScopedDeletePtr<EncodedFrame> encoded_frame(
                                                 EncodedFrame::Create(encoded,
@@ -304,7 +320,7 @@ void WebrtcOpenH264VideoEncoder::Encode_w(
     delete inputImage;
     callback_->Encoded(encoded_frame->image(), NULL, NULL);
     
-#ifdef GETTIMING
+#ifdef GET_TIMING
     gettimeofday(&tv, NULL);
     fprintf(fenctrace, "AfterEmit(tv_sec, tv_usec): \t%ld\t%ld\t EncoderDelta(ms): \t%ld\n", tv.tv_sec, tv.tv_usec, (curtime2-curtime1)/1000);
     fclose(fenctrace);
@@ -332,10 +348,10 @@ int32_t WebrtcOpenH264VideoEncoder::RegisterEncodeCompleteCallback(
 
 int32_t WebrtcOpenH264VideoEncoder::Release() {
 #ifdef OUTPUT_BITSTREAM
-  //if (m_pEncStrmFile)
-   // fclose(m_pEncStrmFile);
+  if (m_pEncStrmFile)
+    fclose(m_pEncStrmFile);
 #endif
-#ifdef GETTIMING
+#ifdef GET_TIMING
   //  if (m_pEncTraceFile)
   //      fclose(m_pEncTraceFile);
 #endif
@@ -397,7 +413,7 @@ int32_t WebrtcOpenH264VideoDecoder::InitDecode(
     static int iDecoderIdx = 0;
     char cFileName[100];
     
-#ifdef GETTIMING
+#ifdef GET_TIMING
     
     //std::snprintf(cFileName, sizeof(cFileName), "h264dectrace_dec%d.txt", iDecoderIdx);
     //m_pDecTraceFile = fopen(cFileName,"wb+");
@@ -422,7 +438,7 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
   void *data[3] = {nullptr, nullptr, nullptr};
   MOZ_MTLOG(ML_DEBUG, "Decoding frame input length=" << inputImage._length);
 
-#ifdef GETTIMING
+#ifdef GET_TIMING
     char cFileName[100];
     std::snprintf(cFileName, sizeof(cFileName), "h264decoder_dec%d.txt", m_iDecoderIdx);
     FILE* fdectrace = fopen(cFileName,"a+");
@@ -439,7 +455,7 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
                                  data,
                                  &decoded);
     
-#ifdef GETTIMING
+#ifdef GET_TIMING
     gettimeofday(&tv, NULL);
     curtime2=tv.tv_usec;
     fprintf(fdectrace, "AfterDecoder(tv_sec,tv_usec): \t%ld\t%ld\t", tv.tv_sec, tv.tv_usec);
@@ -487,7 +503,7 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
                   NS_DISPATCH_NORMAL);
   }
 
-#ifdef GETTIMING
+#ifdef GET_TIMING
     gettimeofday(&tv, NULL);
     curtime3=tv.tv_usec;
     fprintf(fdectrace, "AfterEmit(tv_sec,tv_usec)): \t%ld\t%ld\t DecoderDelta(ms): \t%ld\n", tv.tv_sec, tv.tv_usec, (curtime2-curtime1)/1000);
@@ -523,7 +539,7 @@ int32_t WebrtcOpenH264VideoDecoder::RegisterDecodeCompleteCallback(
 
 
 int32_t WebrtcOpenH264VideoDecoder::Release() {
-#ifdef GETTIMING
+#ifdef GET_TIMING
   //  if (m_pDecTraceFile)
   //      fclose(m_pDecTraceFile);
 #endif
