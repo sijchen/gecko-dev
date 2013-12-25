@@ -70,7 +70,10 @@ class WebrtcOpenH264VideoEncoder : public WebrtcVideoEncoder {
   webrtc::EncodedImageCallback* callback_;
   mozilla::Mutex mutex_;
     
+    int   m_iEncoderIdx;
   FILE* m_pEncStrmFile;
+  FILE* m_pEncTraceFile;
+
 };
 
 
@@ -104,6 +107,9 @@ class WebrtcOpenH264VideoDecoder : public WebrtcVideoDecoder {
   webrtc::DecodedImageCallback* callback_;
   webrtc::I420VideoFrame decoded_image_;
   mozilla::Mutex mutex_;
+    
+    int m_iDecoderIdx;
+      FILE* m_pDecTraceFile;
 };
 
 }

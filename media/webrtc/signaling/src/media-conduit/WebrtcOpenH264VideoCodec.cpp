@@ -32,7 +32,9 @@
 
 namespace mozilla {
 
-#define OUTPUT_BITSTREAM
+//#define OUTPUT_BITSTREAM
+#define GETTIMING
+
     
 MOZ_MTLOG_MODULE("openh264");
 
@@ -53,7 +55,7 @@ struct EncodedFrame {
   static EncodedFrame* Create(const SFrameBSInfo& frame,
                               uint32_t width, uint32_t height,
                               uint32_t timestamp, webrtc::VideoFrameType frame_type,
-                              FILE* pEncStrmFile)
+                              int iEncoderIdx) //FILE* pEncStrmFile)
 #else
     static EncodedFrame* Create(const SFrameBSInfo& frame,
                                 uint32_t width, uint32_t height,
@@ -83,7 +85,16 @@ struct EncodedFrame {
     }
       
 #ifdef OUTPUT_BITSTREAM
+          char cFileName[100];
+        std::snprintf(cFileName, sizeof(cFileName), "h264encstrm_enc%d.264", iEncoderIdx);
+        FILE* pEncStrmFile = fopen(cFileName,"ab+");
+        
      fwrite(((unsigned char *)buffer), 1, length, pEncStrmFile);
+        fclose(pEncStrmFile);
+        
+        FILE* ftmp = fopen("encstream.264","ab+");
+             fwrite(((unsigned char *)buffer), 1, length, ftmp);
+        fclose(ftmp);
 #endif
       
     return new EncodedFrame(buffer.forget(), length, length,
@@ -162,13 +173,24 @@ int32_t WebrtcOpenH264VideoEncoder::InitEncode(
   rv = encoder_->Initialize(&param, INIT_TYPE_PARAMETER_BASED);
   if (rv)
     return WEBRTC_VIDEO_CODEC_MEMORY;
-#ifdef OUTPUT_BITSTREAM
+    
+//#ifdef CODEC_TRACE
   static int iEncoderIdx = 0;
   char cFileName[100];
-    std::snprintf(cFileName, sizeof(cFileName), "h264encstrm_enc%d.264", iEncoderIdx);
-  m_pEncStrmFile = fopen(cFileName,"ab+");
-  iEncoderIdx++;
+    
+#ifdef OUTPUT_BITSTREAM
+ // std::snprintf(cFileName, sizeof(cFileName), "h264encstrm_enc%d.264", iEncoderIdx);
+ // m_pEncStrmFile = fopen(cFileName,"ab+");
+
 #endif
+#ifdef GETTIMING
+    //std::snprintf(cFileName, sizeof(cFileName), "h264enctrace_enc%d.txt", iEncoderIdx);
+    //m_pEncTraceFile = fopen(cFileName,"wb+");
+#endif
+//#endif
+  m_iEncoderIdx=iEncoderIdx;
+  iEncoderIdx++;
+    
     
   return WEBRTC_VIDEO_CODEC_OK;
 }
@@ -206,13 +228,15 @@ int32_t WebrtcOpenH264VideoEncoder::Encode(
   const SSourcePicture* pics = &src;
 
 #ifdef GETTIMING
-    FILE* fenctrace = fopen("h264encoder.txt","a+");
+    char cFileName[100];
+    std::snprintf(cFileName, sizeof(cFileName), "h264encoder_enc%d.txt", m_iEncoderIdx);
+    FILE* fenctrace = fopen(cFileName,"a+");
     struct timeval tv;
     
-    time_t curtime1, curtime2,curtime3;
+    time_t curtime1, curtime2;
     gettimeofday(&tv, NULL);
     curtime1=tv.tv_usec;
-    fprintf(fenctrace, "BeforeEncoder: %ld\t", curtime1);
+    fprintf(fenctrace, "Encoder\t%d\t:BeforeEncoder(tv_sec,tv_usec):\t%ld\t%ld\t", m_iEncoderIdx, tv.tv_sec, tv.tv_usec);
 #endif
     
   int type = encoder_->EncodeFrame(&pics, 1, &encoded);
@@ -220,7 +244,7 @@ int32_t WebrtcOpenH264VideoEncoder::Encode(
 #ifdef GETTIMING
     gettimeofday(&tv, NULL);
     curtime2=tv.tv_usec;
-    fprintf(fenctrace, "AfterEncoder: %ld\t", curtime2);
+    fprintf(fenctrace, "AfterEncoder(tv_sec,tv_usec): \t%ld\t%ld\t", tv.tv_sec, tv.tv_usec);
 #endif
   // Translate int to enum
   switch (type) {
@@ -246,7 +270,8 @@ int32_t WebrtcOpenH264VideoEncoder::Encode(
                            inputImage.height(),
                            inputImage.timestamp(),
                            (*frame_types)[0],
-                                              m_pEncStrmFile));
+                           m_iEncoderIdx));
+                                           //   m_pEncStrmFile));
 #else
     ScopedDeletePtr<EncodedFrame> encoded_frame(
                                                 EncodedFrame::Create(encoded,
@@ -259,8 +284,7 @@ int32_t WebrtcOpenH264VideoEncoder::Encode(
 #ifdef GETTIMING
 
     gettimeofday(&tv, NULL);
-    curtime3=tv.tv_usec;
-        fprintf(fenctrace, "AfterEmit: %ld\t EncoderDelta(ms): %ld\n", curtime3, (curtime2-curtime1)/1000);
+        fprintf(fenctrace, "AfterEmit(tv_sec, tv_usec): \t%ld\t%ld\t EncoderDelta(ms): \t%ld\n", tv.tv_sec, tv.tv_usec, (curtime2-curtime1)/1000);
         fclose(fenctrace);
 #endif
     
@@ -298,8 +322,12 @@ int32_t WebrtcOpenH264VideoEncoder::RegisterEncodeCompleteCallback(
 
 int32_t WebrtcOpenH264VideoEncoder::Release() {
 #ifdef OUTPUT_BITSTREAM
-  if (m_pEncStrmFile)
-    fclose(m_pEncStrmFile);
+  //if (m_pEncStrmFile)
+   // fclose(m_pEncStrmFile);
+#endif
+#ifdef GETTIMING
+  //  if (m_pEncTraceFile)
+  //      fclose(m_pEncTraceFile);
 #endif
     return WEBRTC_VIDEO_CODEC_OK;
 }
@@ -354,6 +382,20 @@ int32_t WebrtcOpenH264VideoDecoder::InitDecode(
   if (lrv) {
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
+    
+//#ifdef CODEC_TRACE
+    static int iDecoderIdx = 0;
+    char cFileName[100];
+    
+#ifdef GETTIMING
+    
+    //std::snprintf(cFileName, sizeof(cFileName), "h264dectrace_dec%d.txt", iDecoderIdx);
+    //m_pDecTraceFile = fopen(cFileName,"wb+");
+#endif
+//#endif
+    m_iDecoderIdx=iDecoderIdx;
+    iDecoderIdx++;
+    
 
   return WEBRTC_VIDEO_CODEC_OK;
 }
@@ -369,10 +411,30 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
   memset(&decoded, 0, sizeof(decoded));
   void *data[3] = {nullptr, nullptr, nullptr};
   MOZ_MTLOG(ML_DEBUG, "Decoding frame input length=" << inputImage._length);
+
+#ifdef GETTIMING
+    char cFileName[100];
+    std::snprintf(cFileName, sizeof(cFileName), "h264decoder_dec%d.txt", m_iDecoderIdx);
+    FILE* fdectrace = fopen(cFileName,"a+");
+    struct timeval tv;
+    
+    time_t curtime1, curtime2,curtime3;
+    gettimeofday(&tv, NULL);
+    curtime1=tv.tv_usec;
+    fprintf(fdectrace, "Decoder\t%d\t:BeforeDecoder(tv_sec,tv_usec):\t%ld\t%ld\t", m_iDecoderIdx, tv.tv_sec, tv.tv_usec);
+#endif
+    
   int rv = decoder_->DecodeFrame(inputImage._buffer,
                                  inputImage._length,
                                  data,
                                  &decoded);
+    
+#ifdef GETTIMING
+    gettimeofday(&tv, NULL);
+    curtime2=tv.tv_usec;
+    fprintf(fdectrace, "AfterDecoder(tv_sec,tv_usec): \t%ld\t%ld\t", tv.tv_sec, tv.tv_usec);
+#endif
+    
   if (rv) {
     MOZ_MTLOG(ML_ERROR, "Decoding error rv=" << rv);
     return WEBRTC_VIDEO_CODEC_ERROR;
@@ -415,14 +477,23 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
                   NS_DISPATCH_NORMAL);
   }
 
-     FILE* fdecstrm = fopen("h264dec.yuv","ab+");
-     fwrite(((unsigned char *)data[0]), 1, ystride*height, fdecstrm);
+#ifdef GETTIMING
+    gettimeofday(&tv, NULL);
+    curtime3=tv.tv_usec;
+    fprintf(fdectrace, "AfterEmit(tv_sec,tv_usec)): \t%ld\t%ld\t DecoderDelta(ms): \t%ld\n", tv.tv_sec, tv.tv_usec, (curtime2-curtime1)/1000);
+    fclose(fdectrace);
+#endif
+#ifdef OUTPUT_YUV
+    FILE* fdecstrm = fopen("h264dec.yuv","ab+");
+    fwrite(((unsigned char *)data[0]), 1, ystride*height, fdecstrm);
     fwrite(((unsigned char *)data[1]), 1, uvstride*height/2, fdecstrm);
     fwrite(((unsigned char *)data[2]), 1, uvstride*height/2, fdecstrm);
-     fclose(fdecstrm);
+    fclose(fdecstrm);
+    
     FILE* fdectrace = fopen("h264dec.txt","a+");
     fprintf(fdectrace, "Decoder: %dx%d, Ystride:%d\n", width,height,ystride);
     fclose(fdectrace);
+#endif
     
   return WEBRTC_VIDEO_CODEC_OK;
 }
@@ -442,6 +513,10 @@ int32_t WebrtcOpenH264VideoDecoder::RegisterDecodeCompleteCallback(
 
 
 int32_t WebrtcOpenH264VideoDecoder::Release() {
+#ifdef GETTIMING
+  //  if (m_pDecTraceFile)
+  //      fclose(m_pDecTraceFile);
+#endif
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
