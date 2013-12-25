@@ -75,7 +75,8 @@ class WebrtcOpenH264VideoEncoder : public WebrtcVideoEncoder {
     int   m_iEncoderIdx;
   FILE* m_pEncStrmFile;
   FILE* m_pEncTraceFile;
-
+    
+  timeval m_tLastCallTime;
 };
 
 
@@ -112,6 +113,7 @@ class WebrtcOpenH264VideoDecoder : public WebrtcVideoDecoder {
     
     int m_iDecoderIdx;
       FILE* m_pDecTraceFile;
+      timeval m_tLastCallTime;
 };
 
 }

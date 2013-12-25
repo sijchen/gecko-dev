@@ -33,8 +33,8 @@
 namespace mozilla {
 
 //#define OUTPUT_BITSTREAM
-#define GET_TIMING
-
+//#define GET_TIMING
+#define GET_TIMING_MZLOG
     
 MOZ_MTLOG_MODULE("openh264");
 
@@ -192,22 +192,19 @@ int32_t WebrtcOpenH264VideoEncoder::InitEncode(
   //std::snprintf(cFileName, sizeof(cFileName), "h264enctrace_enc%d.txt", iEncoderIdx);
   //m_pEncTraceFile = fopen(cFileName,"w+");
 #endif
-#if 0
-   std::snprintf(cFileName, sizeof(cFileName), "h264encparam_enc%d.txt", iEncoderIdx);
-    FILE* ftmp = fopen(cFileName,"a+");
-    fprintf(ftmp, "Encoder\t%d\t:\
-            InputParam:%dfps@(%d,%d,%d)kbps\
-            Encoding:\t%ffps@%dbps\
-            EncodingLayer:\t%dx%d@%ffps@%dbps\n", iEncoderIdx,
-            codecSettings->maxFramerate,codecSettings->startBitrate, codecSettings->minBitrate, codecSettings->maxBitrate,
-            param.fFrameRate, param.iTargetBitrate,
-            layer->iVideoWidth, layer->iVideoHeight, layer->fFrameRate, layer->iSpatialBitrate);
-    fclose(ftmp);
-#endif
+    MOZ_MTLOG(ML_INFO, "Encoder:\t"<< iEncoderIdx
+              << "InputParam:\t" << codecSettings->maxFramerate << "fps ("
+              << codecSettings->startBitrate << "," << codecSettings->minBitrate << "," << codecSettings->maxBitrate << ")kbps \t"
+              << "Encoding" << param.fFrameRate << "fps@" << param.iTargetBitrate <<" bps \t"
+              << "EncodingLayer" << layer->iVideoWidth << "x" << layer->iVideoHeight
+              << "@" << layer->fFrameRate << "fps@" << layer->iSpatialBitrate<<"bps \t");
+    
 //#endif
   m_iEncoderIdx=iEncoderIdx;
   iEncoderIdx++;
-    
+   
+    m_tLastCallTime.tv_sec = 0;
+    m_tLastCallTime.tv_usec = 0;
     
   return WEBRTC_VIDEO_CODEC_OK;
 }
@@ -268,6 +265,16 @@ void WebrtcOpenH264VideoEncoder::Encode_w(
     curtime1=tv.tv_usec;
     fprintf(fenctrace, "Encoder\t%d\t:BeforeEncoder(tv_sec,tv_usec):\t%ld\t%ld\t", m_iEncoderIdx, tv.tv_sec, tv.tv_usec);
 #endif
+#ifdef GET_TIMING_MZLOG
+    struct timeval tv2;
+    struct timeval BeginTime;
+    
+    timeval curtimeB;
+    gettimeofday(&tv2, NULL);
+    
+    BeginTime = tv2;
+    MOZ_MTLOG(ML_INFO, "Encoder\t"<< m_iEncoderIdx << "\tBeforeEncoder\t"<< tv2.tv_sec << "\t" << tv2.tv_usec);
+#endif
     
   PRIntervalTime t0 = PR_IntervalNow();
   int type = encoder_->EncodeFrame(&pics, 1, &encoded);
@@ -278,6 +285,11 @@ void WebrtcOpenH264VideoEncoder::Encode_w(
     gettimeofday(&tv, NULL);
     curtime2=tv.tv_usec;
     fprintf(fenctrace, "AfterEncoder(tv_sec,tv_usec): \t%ld\t%ld\t", tv.tv_sec, tv.tv_usec);
+#endif
+#ifdef GET_TIMING_MZLOG
+    gettimeofday(&tv2, NULL);
+    curtimeB=tv2;
+    MOZ_MTLOG(ML_INFO, "Encoder\t"<< m_iEncoderIdx << "\tAfterEncoder\t"<< tv2.tv_sec << "\t" << tv2.tv_usec);
 #endif
 
 
@@ -324,6 +336,14 @@ void WebrtcOpenH264VideoEncoder::Encode_w(
     gettimeofday(&tv, NULL);
     fprintf(fenctrace, "AfterEmit(tv_sec, tv_usec): \t%ld\t%ld\t EncoderDelta(ms): \t%ld\n", tv.tv_sec, tv.tv_usec, (curtime2-curtime1)/1000);
     fclose(fenctrace);
+#endif
+#ifdef GET_TIMING_MZLOG
+    gettimeofday(&tv2, NULL);
+    int calldiff = (m_tLastCallTime.tv_usec)?(((BeginTime.tv_sec - m_tLastCallTime.tv_sec) * 1000000 + (BeginTime.tv_usec - m_tLastCallTime.tv_usec))/1000):0;
+    MOZ_MTLOG(ML_INFO, "Encoder\t"<< m_iEncoderIdx << "\tAfterEmit\t"<< tv2.tv_sec << "\t" << tv2.tv_usec
+              << "\tEncoderDelta\t" << ((curtimeB.tv_sec - BeginTime.tv_sec) * 1000000 + (curtimeB.tv_usec - BeginTime.tv_usec))/1000
+              << "\tBetweenCallEncoder\t" << calldiff );
+    m_tLastCallTime=BeginTime;
 #endif
 
 }
@@ -423,6 +443,9 @@ int32_t WebrtcOpenH264VideoDecoder::InitDecode(
     iDecoderIdx++;
     
 
+    m_tLastCallTime.tv_sec = 0;
+    m_tLastCallTime.tv_usec = 0;
+    
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
@@ -449,6 +472,16 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
     curtime1=tv.tv_usec;
     fprintf(fdectrace, "Decoder\t%d\t:BeforeDecoder(tv_sec,tv_usec):\t%ld\t%ld\t", m_iDecoderIdx, tv.tv_sec, tv.tv_usec);
 #endif
+#ifdef GET_TIMING_MZLOG
+    struct timeval tv2;
+    struct timeval BeginTime;
+    
+    timeval curtimeB;
+    gettimeofday(&tv2, NULL);
+    
+    BeginTime = tv2;
+    MOZ_MTLOG(ML_INFO, "Decoder\t"<< m_iDecoderIdx << "\tBeforeDecoder\t"<< tv2.tv_sec << "\t" << tv2.tv_usec);
+#endif
     
   int rv = decoder_->DecodeFrame(inputImage._buffer,
                                  inputImage._length,
@@ -460,6 +493,12 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
     curtime2=tv.tv_usec;
     fprintf(fdectrace, "AfterDecoder(tv_sec,tv_usec): \t%ld\t%ld\t", tv.tv_sec, tv.tv_usec);
 #endif
+#ifdef GET_TIMING_MZLOG
+    gettimeofday(&tv2, NULL);
+    curtimeB=tv2;
+    MOZ_MTLOG(ML_INFO, "Decoder\t"<< m_iDecoderIdx << "\tAfterDecoder\t"<< tv2.tv_sec << "\t" << tv2.tv_usec);
+#endif
+
     
   if (rv) {
     MOZ_MTLOG(ML_ERROR, "Decoding error rv=" << rv);
@@ -508,6 +547,14 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
     curtime3=tv.tv_usec;
     fprintf(fdectrace, "AfterEmit(tv_sec,tv_usec)): \t%ld\t%ld\t DecoderDelta(ms): \t%ld\n", tv.tv_sec, tv.tv_usec, (curtime2-curtime1)/1000);
     fclose(fdectrace);
+#endif
+#ifdef GET_TIMING_MZLOG
+    gettimeofday(&tv2, NULL);
+    int calldiff = (m_tLastCallTime.tv_usec)?(((BeginTime.tv_sec - m_tLastCallTime.tv_sec) * 1000000 + (BeginTime.tv_usec - m_tLastCallTime.tv_usec))/1000):0;
+    MOZ_MTLOG(ML_INFO, "Decoder\t"<< m_iDecoderIdx << "\tAfterEmit\t"<< tv2.tv_sec << "\t" << tv2.tv_usec
+              << "\tDecoderDelta\t" << ((curtimeB.tv_sec - BeginTime.tv_sec) * 1000000 + (curtimeB.tv_usec - BeginTime.tv_usec))/1000
+              << "\tBetweenCallDecoder\t" << calldiff );
+    m_tLastCallTime=BeginTime;
 #endif
 #ifdef OUTPUT_YUV
     FILE* fdecstrm = fopen("h264dec.yuv","ab+");
