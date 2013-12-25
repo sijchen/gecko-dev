@@ -124,7 +124,7 @@ int32_t WebrtcOpenH264VideoEncoder::InitEncode(
   // Translate parameters.
   param.iPicWidth = codecSettings->width;
   param.iPicHeight = codecSettings->height;
-  param.iTargetBitrate = codecSettings->maxBitrate * 1000; // kbps -> bps
+  param.iTargetBitrate = codecSettings->startBitrate * 1000; // kbps -> bps
   param.iTemporalLayerNum = 1;
   param.iSpatialLayerNum = 1;
   // TODO(ekr@rtfm.com). Scary conversion from unsigned char to float below.
