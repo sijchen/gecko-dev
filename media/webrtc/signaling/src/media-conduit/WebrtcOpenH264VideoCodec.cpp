@@ -157,6 +157,7 @@ int32_t WebrtcOpenH264VideoEncoder::InitEncode(
   param.iTargetBitrate = codecSettings->startBitrate * 1000;
   param.iTemporalLayerNum = 1;
   param.iSpatialLayerNum = 1;
+  //param.iIntraPeriod = 30*(static_cast<int>(codecSettings->maxFramerate));
   // TODO(ekr@rtfm.com). Scary conversion from unsigned char to float below.
   param.fFrameRate = codecSettings->maxFramerate;
   param.iInputCsp = videoFormatI420;
