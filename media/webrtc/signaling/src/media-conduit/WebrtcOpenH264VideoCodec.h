@@ -60,6 +60,8 @@ class WebrtcOpenH264VideoEncoder : public WebrtcVideoEncoder {
                                  uint32_t frameRate);
 
  private:
+  virtual void Encode_w(webrtc::I420VideoFrame* inputImage,
+			   webrtc::VideoFrameType frame_type);
   void EmitFrames();
   void EmitFrame(EncodedFrame *frame);
 
