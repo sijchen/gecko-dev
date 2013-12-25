@@ -138,6 +138,7 @@ int32_t WebrtcOpenH264VideoEncoder::InitEncode(
   layer->iVideoHeight = codecSettings->height;
   layer->iQualityLayerNum = 1;
   layer->iSpatialBitrate = param.iTargetBitrate;
+  layer->fFrameRate = param.fFrameRate;
 
   // Based on guidance from Cisco.
   layer->sSliceCfg.sSliceArgument.uiSliceMbNum[0] = 1000;
@@ -156,34 +157,52 @@ int32_t WebrtcOpenH264VideoEncoder::Encode(
     const webrtc::I420VideoFrame& inputImage,
     const webrtc::CodecSpecificInfo* codecSpecificInfo,
     const std::vector<webrtc::VideoFrameType>* frame_types) {
-  MOZ_MTLOG(ML_DEBUG, "Encoding frame");
-
   MOZ_ASSERT(!frame_types->empty());
   if (frame_types->empty())
     return WEBRTC_VIDEO_CODEC_ERROR;
   // TODO(ekr@rtfm.com): Actually handle frame type.
 
+  webrtc::I420VideoFrame* imageCopy = new webrtc::I420VideoFrame();
+  imageCopy->CopyFrame(inputImage);
+
+  RUN_ON_THREAD(thread_,
+      WrapRunnable(nsRefPtr<WebrtcOpenH264VideoEncoder>(this),
+		   &WebrtcOpenH264VideoEncoder::Encode_w,
+		   imageCopy, (*frame_types)[0]),
+		NS_DISPATCH_NORMAL);
+
+  return WEBRTC_VIDEO_CODEC_OK;
+}
+
+void WebrtcOpenH264VideoEncoder::Encode_w(
+    webrtc::I420VideoFrame* inputImage,
+    webrtc::VideoFrameType frame_type) {
   SFrameBSInfo encoded;
   SSourcePicture src;
 
   src.iColorFormat = videoFormatI420;
-  src.iStride[0] = inputImage.stride(webrtc::kYPlane);
+  src.iStride[0] = inputImage->stride(webrtc::kYPlane);
   src.pData[0] = reinterpret_cast<unsigned char*>(
-      const_cast<uint8_t *>(inputImage.buffer(webrtc::kYPlane)));
-  src.iStride[1] = inputImage.stride(webrtc::kUPlane);
+      const_cast<uint8_t *>(inputImage->buffer(webrtc::kYPlane)));
+  src.iStride[1] = inputImage->stride(webrtc::kUPlane);
   src.pData[1] = reinterpret_cast<unsigned char*>(
-      const_cast<uint8_t *>(inputImage.buffer(webrtc::kUPlane)));
-  src.iStride[2] = inputImage.stride(webrtc::kVPlane);
+      const_cast<uint8_t *>(inputImage->buffer(webrtc::kUPlane)));
+  src.iStride[2] = inputImage->stride(webrtc::kVPlane);
   src.pData[2] = reinterpret_cast<unsigned char*>(
-      const_cast<uint8_t *>(inputImage.buffer(webrtc::kVPlane)));
+      const_cast<uint8_t *>(inputImage->buffer(webrtc::kVPlane)));
   src.iStride[3] = 0;
   src.pData[3] = nullptr;
-  src.iPicWidth = inputImage.width();
-  src.iPicHeight = inputImage.height();
+  src.iPicWidth = inputImage->width();
+  src.iPicHeight = inputImage->height();
 
   const SSourcePicture* pics = &src;
 
+  PRIntervalTime t0 = PR_IntervalNow();
   int type = encoder_->EncodeFrame(&pics, 1, &encoded);
+  PRIntervalTime t1 = PR_IntervalNow();
+
+  MOZ_MTLOG(ML_DEBUG, "Encoding time: " << PR_IntervalToMilliseconds(
+      t1 - t0) << "ms");
 
   // Translate int to enum
   switch (type) {
@@ -195,7 +214,7 @@ int32_t WebrtcOpenH264VideoEncoder::Encode(
       break;
     case videoFrameTypeInvalid:
       MOZ_MTLOG(ML_ERROR, "Couldn't encode frame. Error = " << type);
-      return WEBRTC_VIDEO_CODEC_ERROR;
+      return;
       break;
     default:
       // The API is defined as returning a type.
@@ -205,22 +224,13 @@ int32_t WebrtcOpenH264VideoEncoder::Encode(
 
   ScopedDeletePtr<EncodedFrame> encoded_frame(
       EncodedFrame::Create(encoded,
-                           inputImage.width(),
-                           inputImage.height(),
-                           inputImage.timestamp(),
-                           (*frame_types)[0]));
+                           inputImage->width(),
+                           inputImage->height(),
+                           inputImage->timestamp(),
+			   frame_type));
+  delete inputImage;
 
-  MutexAutoLock lock(mutex_);
-  frames_.push(encoded_frame.forget());
-
-  RUN_ON_THREAD(thread_,
-                WrapRunnable(
-                    // RefPtr keeps object alive.
-                    nsRefPtr<WebrtcOpenH264VideoEncoder>(this),
-                    &WebrtcOpenH264VideoEncoder::EmitFrames),
-                NS_DISPATCH_NORMAL);
-
-  return WEBRTC_VIDEO_CODEC_OK;
+  callback_->Encoded(encoded_frame->image(), NULL, NULL);
 }
 
 void WebrtcOpenH264VideoEncoder::EmitFrames() {
@@ -340,9 +350,10 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
   int len = ystride * height;
 
   if (len) {
-    if (decoded_image_.CreateFrame(len, static_cast<uint8_t *>(data[0]),
-                                   uvstride*height/2, static_cast<uint8_t *>(data[1]),
-                                   uvstride*height/2, static_cast<uint8_t *>(data[2]),
+
+    if (decoded_image_.CreateFrame(ystride * height, static_cast<uint8_t *>(data[0]),
+                                   uvstride * height/2, static_cast<uint8_t *>(data[1]),
+                                   uvstride * height/2, static_cast<uint8_t *>(data[2]),
                                    width, height,
                                    ystride, uvstride, uvstride
                                    ))
