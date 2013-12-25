@@ -34,7 +34,12 @@ namespace mozilla {
 
 //#define OUTPUT_BITSTREAM
 //#define GET_TIMING
+    
+    
 #define GET_TIMING_MZLOG
+//Usage:
+//    export NSPR_LOG_MODULES=openh264:X //X=5
+//    export NSPR_LOG_FILE=~/Desktop/log.txt
     
 MOZ_MTLOG_MODULE("openh264");
 
