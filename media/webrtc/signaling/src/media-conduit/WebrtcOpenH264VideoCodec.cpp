@@ -220,6 +220,8 @@ int32_t WebrtcOpenH264VideoEncoder::Encode(
     const webrtc::I420VideoFrame& inputImage,
     const webrtc::CodecSpecificInfo* codecSpecificInfo,
     const std::vector<webrtc::VideoFrameType>* frame_types) {
+  MOZ_MTLOG(ML_DEBUG, "Frame added");
+
   MOZ_ASSERT(!frame_types->empty());
   if (frame_types->empty())
     return WEBRTC_VIDEO_CODEC_ERROR;
@@ -339,6 +341,7 @@ void WebrtcOpenH264VideoEncoder::Encode_w(
     {
         MOZ_MTLOG(ML_INFO, "Encoder\t"<< m_iEncoderIdx
                   << "\tInputWidth\t"<< inputImage->width() << "\tInputHeight\t"<< inputImage->height() << "\tInputTimestamp\t"<< inputImage->timestamp()
+                  << "\tEncoderReturn\t"<< type
                   << "\tEncodedFrameTimestamp\t"<< encoded_frame->image()._timeStamp << "\tEncodedFrameLength\t"<< encoded_frame->image()._length
                   << "\tEncodedFrameLayerNum\t"<< encoded.iLayerNum );
         
@@ -368,6 +371,7 @@ void WebrtcOpenH264VideoEncoder::Encode_w(
 #endif
 
 
+  return;
 }
 
 void WebrtcOpenH264VideoEncoder::EmitFrames() {
