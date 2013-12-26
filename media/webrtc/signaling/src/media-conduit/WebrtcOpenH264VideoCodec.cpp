@@ -351,7 +351,7 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
     width = decoded.UsrData.sVideoBuffer.iSurfaceWidth;
     height = decoded.UsrData.sVideoBuffer.iSurfaceHeight;
   }
-  int len = ystride * height;
+  int len = width * height;
 
   if (len) {
 
