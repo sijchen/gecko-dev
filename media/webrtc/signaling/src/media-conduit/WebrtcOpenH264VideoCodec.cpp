@@ -211,29 +211,28 @@ void WebrtcOpenH264VideoEncoder::Encode_w(
     case videoFrameTypeIDR:
     case videoFrameTypeI:
     case videoFrameTypeP:
-    case videoFrameTypeSkip:
-    case videoFrameTypeIPMixed:
+      {
+        ScopedDeletePtr<EncodedFrame> encoded_frame(EncodedFrame::Create(encoded,
+                                                                          inputImage->width(),
+                                                                          inputImage->height(),
+                                                                          inputImage->timestamp(),
+                                                                          frame_type));
+        callback_->Encoded(encoded_frame->image(), NULL, NULL);
+      }
       break;
+    case videoFrameTypeSkip:
+      //can skip the call back since not actual bit stream will be generated
+      break;
+    case videoFrameTypeIPMixed://this type is currently not suppported
     case videoFrameTypeInvalid:
       MOZ_MTLOG(ML_ERROR, "Couldn't encode frame. Error = " << type);
-      return;
       break;
     default:
       // The API is defined as returning a type.
       MOZ_CRASH();
       break;
   }
-
-  ScopedDeletePtr<EncodedFrame> encoded_frame(
-      EncodedFrame::Create(encoded,
-                           inputImage->width(),
-                           inputImage->height(),
-                           inputImage->timestamp(),
-			   frame_type));
   delete inputImage;
-
-  callback_->Encoded(encoded_frame->image(), NULL, NULL);
-
   return;
 }
 
