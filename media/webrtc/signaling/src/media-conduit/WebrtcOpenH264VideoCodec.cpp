@@ -124,7 +124,7 @@ int32_t WebrtcOpenH264VideoEncoder::InitEncode(
   // Translate parameters.
   param.iPicWidth = codecSettings->width;
   param.iPicHeight = codecSettings->height;
-  param.iTargetBitrate = codecSettings->maxBitrate * 1000;
+  param.iTargetBitrate = codecSettings->startBitrate * 1000;
   param.iTemporalLayerNum = 1;
   param.iSpatialLayerNum = 1;
   // TODO(ekr@rtfm.com). Scary conversion from unsigned char to float below.
@@ -157,6 +157,8 @@ int32_t WebrtcOpenH264VideoEncoder::Encode(
     const webrtc::I420VideoFrame& inputImage,
     const webrtc::CodecSpecificInfo* codecSpecificInfo,
     const std::vector<webrtc::VideoFrameType>* frame_types) {
+  MOZ_MTLOG(ML_DEBUG, "Frame added");
+
   MOZ_ASSERT(!frame_types->empty());
   if (frame_types->empty())
     return WEBRTC_VIDEO_CODEC_ERROR;
@@ -231,6 +233,8 @@ void WebrtcOpenH264VideoEncoder::Encode_w(
   delete inputImage;
 
   callback_->Encoded(encoded_frame->image(), NULL, NULL);
+
+  return;
 }
 
 void WebrtcOpenH264VideoEncoder::EmitFrames() {
