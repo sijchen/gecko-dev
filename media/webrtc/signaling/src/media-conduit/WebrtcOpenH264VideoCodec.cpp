@@ -212,11 +212,12 @@ void WebrtcOpenH264VideoEncoder::Encode_w(
     case videoFrameTypeI:
     case videoFrameTypeP:
       {
-        ScopedDeletePtr<EncodedFrame> encoded_frame(EncodedFrame::Create(encoded,
-                                                                          inputImage->width(),
-                                                                          inputImage->height(),
-                                                                          inputImage->timestamp(),
-                                                                          frame_type));
+        ScopedDeletePtr<EncodedFrame> encoded_frame(
+            EncodedFrame::Create(encoded,
+                                 inputImage->width(),
+                                 inputImage->height(),
+                                 inputImage->timestamp(),
+                                 frame_type));
         callback_->Encoded(encoded_frame->image(), NULL, NULL);
       }
       break;
