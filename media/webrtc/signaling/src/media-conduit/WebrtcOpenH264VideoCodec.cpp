@@ -354,7 +354,6 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
   int len = width * height;
 
   if (len) {
-
     if (decoded_image_.CreateFrame(ystride * height, static_cast<uint8_t *>(data[0]),
                                    uvstride * height/2, static_cast<uint8_t *>(data[1]),
                                    uvstride * height/2, static_cast<uint8_t *>(data[2]),
