@@ -286,6 +286,11 @@ private:
   unsigned short mSendingWidth;
   unsigned short mSendingHeight;
 
+#ifdef VIDEOCONDUIT_INSERT_TIMESTAMP
+  PRIntervalTime mStartTime;
+  uint32_t mSentFrames;
+#endif
+
   mozilla::RefPtr<WebrtcAudioConduit> mSyncedTo;
 };
 
