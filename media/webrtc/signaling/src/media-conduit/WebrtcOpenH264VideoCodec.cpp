@@ -60,8 +60,8 @@ struct EncodedFrame {
   static EncodedFrame* Create(const SFrameBSInfo& frame,
                               uint32_t width, uint32_t height,
                               uint32_t timestamp, webrtc::VideoFrameType frame_type,
-                              //int iEncoderIdx)
-    FILE* pEncStrmFile)
+                              int iEncoderIdx)
+    //FILE* pEncStrmFile)
 #else
     static EncodedFrame* Create(const SFrameBSInfo& frame,
                                 uint32_t width, uint32_t height,
@@ -91,19 +91,19 @@ struct EncodedFrame {
     }
       
 #ifdef OUTPUT_BITSTREAM
-    //char cFileName[100];
-    //std::snprintf(cFileName, sizeof(cFileName), "h264encstrm_enc%d.264", iEncoderIdx);
-    //FILE* pEncStrmFile = fopen(cFileName,"ab+");
+    char cFileName[100];
+    std::snprintf(cFileName, sizeof(cFileName), "h264encstrm_enc%d.264", iEncoderIdx);
+    FILE* pEncStrmFile = fopen(cFileName,"ab+");
         
     //if not open the file again,
     //the following code cannot write out bit stream correctly
     fwrite(((unsigned char *)buffer), 1, length, pEncStrmFile);
-    //fclose(pEncStrmFile);
+    fclose(pEncStrmFile);
         
         //the following code can write out bit stream correctly
-        FILE* ftmp = fopen("encstream.264","ab+");
-             fwrite(((unsigned char *)buffer), 1, length, ftmp);
-        fclose(ftmp);
+        //FILE* ftmp = fopen("encstream.264","ab+");
+        //     fwrite(((unsigned char *)buffer), 1, length, ftmp);
+        //fclose(ftmp);
 #endif
       
     return new EncodedFrame(buffer.forget(), length, length,
@@ -190,8 +190,8 @@ int32_t WebrtcOpenH264VideoEncoder::InitEncode(
   char cFileName[100];
     
 #ifdef OUTPUT_BITSTREAM
-  std::snprintf(cFileName, sizeof(cFileName), "h264encstrm_enc%d.264", iEncoderIdx);
-  m_pEncStrmFile = fopen(cFileName,"ab+");
+  //std::snprintf(cFileName, sizeof(cFileName), "h264encstrm_enc%d.264", iEncoderIdx);
+  //m_pEncStrmFile = fopen(cFileName,"wb+");
 
 #endif
 #ifdef GET_TIMING
@@ -325,8 +325,8 @@ void WebrtcOpenH264VideoEncoder::Encode_w(
                            inputImage->height(),
                            inputImage->timestamp(),
                            frame_type,
-                           //m_iEncoderIdx));
-                            m_pEncStrmFile));
+                           m_iEncoderIdx));
+                           // m_pEncStrmFile));
 #else
     ScopedDeletePtr<EncodedFrame> encoded_frame(
                                                 EncodedFrame::Create(encoded,
@@ -335,6 +335,14 @@ void WebrtcOpenH264VideoEncoder::Encode_w(
                                                                      inputImage->timestamp(),
                                                                      frame_type));
 #endif
+    if (0==encoded_frame->image()._length)
+    {
+        MOZ_MTLOG(ML_INFO, "Encoder\t"<< m_iEncoderIdx
+                  << "\tInputWidth\t"<< inputImage->width() << "\tInputHeight\t"<< inputImage->height() << "\tInputTimestamp\t"<< inputImage->timestamp()
+                  << "\tEncodedFrameTimestamp\t"<< encoded_frame->image()._timeStamp << "\tEncodedFrameLength\t"<< encoded_frame->image()._length
+                  << "\tEncodedFrameLayerNum\t"<< encoded.iLayerNum );
+        
+    }
     
     delete inputImage;
     callback_->Encoded(encoded_frame->image(), NULL, NULL);
@@ -359,6 +367,7 @@ void WebrtcOpenH264VideoEncoder::Encode_w(
     }
 #endif
 
+
 }
 
 void WebrtcOpenH264VideoEncoder::EmitFrames() {
@@ -381,8 +390,8 @@ int32_t WebrtcOpenH264VideoEncoder::RegisterEncodeCompleteCallback(
 
 int32_t WebrtcOpenH264VideoEncoder::Release() {
 #ifdef OUTPUT_BITSTREAM
-  if (m_pEncStrmFile)
-    fclose(m_pEncStrmFile);
+  //if (m_pEncStrmFile)
+  //  fclose(m_pEncStrmFile);
 #endif
 #ifdef GET_TIMING
   //  if (m_pEncTraceFile)
