@@ -279,7 +279,7 @@ void WebrtcOpenH264VideoEncoder::Encode_w(
     gettimeofday(&tv2, NULL);
     
     BeginTime = tv2;
-    MOZ_MTLOG(ML_INFO, "Encoder\t"<< m_iEncoderIdx << "\tBeforeEncoder\t"<< tv2.tv_sec << "\t" << tv2.tv_usec);
+    //MOZ_MTLOG(ML_INFO, "Encoder\t"<< m_iEncoderIdx << "\tBeforeEncoder\t"<< tv2.tv_sec << "\t" << tv2.tv_usec);
 #endif
     
   PRIntervalTime t0 = PR_IntervalNow();
@@ -295,7 +295,8 @@ void WebrtcOpenH264VideoEncoder::Encode_w(
 #ifdef GET_TIMING_MZLOG
     gettimeofday(&tv2, NULL);
     curtimeB=tv2;
-    MOZ_MTLOG(ML_INFO, "Encoder\t"<< m_iEncoderIdx << "\tAfterEncoder\t"<< tv2.tv_sec << "\t" << tv2.tv_usec);
+    //MOZ_MTLOG(ML_INFO, "Encoder\t"<< m_iEncoderIdx << "\tAfterEncoder\t"<< tv2.tv_sec << "\t" << tv2.tv_usec);
+    int timestamp = inputImage->timestamp();
 #endif
 
 
@@ -344,12 +345,18 @@ void WebrtcOpenH264VideoEncoder::Encode_w(
     fclose(fenctrace);
 #endif
 #ifdef GET_TIMING_MZLOG
+    if (encoded_frame->image()._length)
+    {
     gettimeofday(&tv2, NULL);
     int calldiff = (m_tLastCallTime.tv_usec)?(((BeginTime.tv_sec - m_tLastCallTime.tv_sec) * 1000000 + (BeginTime.tv_usec - m_tLastCallTime.tv_usec))/1000):0;
-    MOZ_MTLOG(ML_INFO, "Encoder\t"<< m_iEncoderIdx << "\tAfterEmit\t"<< tv2.tv_sec << "\t" << tv2.tv_usec
+    MOZ_MTLOG(ML_INFO, "Encoder\t"<< m_iEncoderIdx
+              << "\tCurFrameTimestamp\t"<< encoded_frame->image()._timeStamp << "\tCurFrameLength\t"<< encoded_frame->image()._length
+              << "\tBeginEncoder\t"<< BeginTime.tv_sec << "\t" << BeginTime.tv_usec
+              << "\tAfterEmit\t"<< tv2.tv_sec << "\t" << tv2.tv_usec
               << "\tEncoderDelta\t" << ((curtimeB.tv_sec - BeginTime.tv_sec) * 1000000 + (curtimeB.tv_usec - BeginTime.tv_usec))/1000
               << "\tBetweenCallEncoder\t" << calldiff );
     m_tLastCallTime=BeginTime;
+    }
 #endif
 
 }
@@ -486,7 +493,7 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
     gettimeofday(&tv2, NULL);
     
     BeginTime = tv2;
-    MOZ_MTLOG(ML_INFO, "Decoder\t"<< m_iDecoderIdx << "\tBeforeDecoder\t"<< tv2.tv_sec << "\t" << tv2.tv_usec);
+    //MOZ_MTLOG(ML_INFO, "Decoder\t"<< m_iDecoderIdx << "\tBeforeDecoder\t"<< tv2.tv_sec << "\t" << tv2.tv_usec);
 #endif
     
   int rv = decoder_->DecodeFrame(inputImage._buffer,
@@ -502,7 +509,7 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
 #ifdef GET_TIMING_MZLOG
     gettimeofday(&tv2, NULL);
     curtimeB=tv2;
-    MOZ_MTLOG(ML_INFO, "Decoder\t"<< m_iDecoderIdx << "\tAfterDecoder\t"<< tv2.tv_sec << "\t" << tv2.tv_usec);
+    //MOZ_MTLOG(ML_INFO, "Decoder\t"<< m_iDecoderIdx << "\tAfterDecoder\t"<< tv2.tv_sec << "\t" << tv2.tv_usec);
 #endif
 
     
@@ -557,7 +564,10 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
 #ifdef GET_TIMING_MZLOG
     gettimeofday(&tv2, NULL);
     int calldiff = (m_tLastCallTime.tv_usec)?(((BeginTime.tv_sec - m_tLastCallTime.tv_sec) * 1000000 + (BeginTime.tv_usec - m_tLastCallTime.tv_usec))/1000):0;
-    MOZ_MTLOG(ML_INFO, "Decoder\t"<< m_iDecoderIdx << "\tAfterEmit\t"<< tv2.tv_sec << "\t" << tv2.tv_usec
+    MOZ_MTLOG(ML_INFO, "Decoder\t"<< m_iDecoderIdx
+              << "\tCurFrameTimestamp\t"<< inputImage._timeStamp << "\tCurFrameLength\t"<< inputImage._length
+              << "\tBeginDecoder\t"<< BeginTime.tv_sec << "\t" << BeginTime.tv_usec
+              << "\tAfterEmit\t"<< tv2.tv_sec << "\t" << tv2.tv_usec
               << "\tDecoderDelta\t" << ((curtimeB.tv_sec - BeginTime.tv_sec) * 1000000 + (curtimeB.tv_usec - BeginTime.tv_usec))/1000
               << "\tBetweenCallDecoder\t" << calldiff );
     m_tLastCallTime=BeginTime;
