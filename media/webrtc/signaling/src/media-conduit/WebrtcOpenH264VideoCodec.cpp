@@ -337,16 +337,6 @@ void WebrtcOpenH264VideoEncoder::Encode_w(
                                                                      inputImage->timestamp(),
                                                                      frame_type));
 #endif
-    if (0==encoded_frame->image()._length)
-    {
-        MOZ_MTLOG(ML_INFO, "Encoder\t"<< m_iEncoderIdx
-                  << "\tInputWidth\t"<< inputImage->width() << "\tInputHeight\t"<< inputImage->height() << "\tInputTimestamp\t"<< inputImage->timestamp()
-                  << "\tEncoderReturn\t"<< type
-                  << "\tEncodedFrameTimestamp\t"<< encoded_frame->image()._timeStamp << "\tEncodedFrameLength\t"<< encoded_frame->image()._length
-                  << "\tEncodedFrameLayerNum\t"<< encoded.iLayerNum );
-        
-    }
-    
     delete inputImage;
     callback_->Encoded(encoded_frame->image(), NULL, NULL);
     
