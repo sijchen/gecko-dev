@@ -2,8 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "WebrtcOpenh264VideoCodec.h"
-#include "Openh264VideoCodec.h"
+#include "WebrtcOpenH264VideoCodec.h"
+#include "OpenH264VideoCodec.h"
 
 namespace mozilla {
 

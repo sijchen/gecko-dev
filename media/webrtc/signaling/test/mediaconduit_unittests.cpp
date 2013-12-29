@@ -963,9 +963,10 @@ int main(int argc, char **argv)
   // This test can cause intermittent oranges on the builders
   CHECK_ENVIRONMENT_FLAG("MOZ_WEBRTC_MEDIACONDUIT_TESTS")
 
+#ifdef __APPLE__
   void WelsStderrSetTraceLevel (int);
   WelsStderrSetTraceLevel(9);
-
+#endif
 
   test_utils = new MtransportTestUtils();
   ::testing::InitGoogleTest(&argc, argv);
