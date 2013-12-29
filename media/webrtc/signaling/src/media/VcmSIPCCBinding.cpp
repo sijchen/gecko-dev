@@ -54,14 +54,14 @@ extern void lsm_update_active_tone(vcm_tones_t tone, cc_call_handle_t call_handl
 extern void lsm_stop_multipart_tone_timer(void);
 extern void lsm_stop_continuous_tone_timer(void);
 
-}//end extern "C"
-
-static const char* logTag = "VcmSipccBinding";
-
 static int vcmEnsureExternalCodec(
   const mozilla::RefPtr<mozilla::VideoSessionConduit>& conduit,
   mozilla::VideoCodecConfig* config,
   bool send);
+
+}//end extern "C"
+
+static const char* logTag = "VcmSipccBinding";
 
 // Cloned from ccapi.h
 typedef enum {
