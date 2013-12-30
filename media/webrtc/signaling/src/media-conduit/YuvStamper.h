@@ -27,9 +27,9 @@ class YuvStamper {
   bool WriteDigit(uint8_t* data, uint32_t x, uint32_t y, uint8_t digit);
   bool WritePixel(uint8_t* data, uint32_t x, uint32_t y);
 
-  const uint32_t kPixelSize = 3;
-  const uint32_t kDigitWidth = 6;
-  const uint32_t kDigitHeight = 7;
+  static const uint32_t kPixelSize = 3;
+  static const uint32_t kDigitWidth = 6;
+  static const uint32_t kDigitHeight = 7;
 
   uint32_t width_;
   uint32_t height_;
