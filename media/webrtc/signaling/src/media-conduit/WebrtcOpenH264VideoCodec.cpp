@@ -36,7 +36,7 @@ namespace mozilla {
 //#define GET_TIMING
     
     
-#define GET_TIMING_MZLOG
+//#define GET_TIMING_MZLOG
 //Usage:
 //    export NSPR_LOG_MODULES=openh264:X //X=5
 //    export NSPR_LOG_FILE=~/Desktop/log.txt
