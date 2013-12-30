@@ -266,6 +266,12 @@ int32_t WebrtcOpenH264VideoEncoder::SetChannelParameters(uint32_t packetLoss,
 
 int32_t WebrtcOpenH264VideoEncoder::SetRates(uint32_t newBitRate,
                                              uint32_t frameRate) {
+    
+  encoder_->SetOption(ENCODER_OPTION_BITRATE, &newBitRate);
+  MOZ_MTLOG(ML_INFO, "Update Encoder Bandwidth: BitRate:"
+              << newBitRate
+              << "FrameRate:"
+              << frameRate);
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
