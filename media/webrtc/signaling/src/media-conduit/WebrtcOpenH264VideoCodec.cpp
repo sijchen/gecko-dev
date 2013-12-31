@@ -32,7 +32,7 @@
 
 namespace mozilla {
 
-//#define OUTPUT_BITSTREAM
+#define OUTPUT_BITSTREAM
 //#define GET_TIMING
     
     
@@ -411,7 +411,9 @@ int32_t WebrtcOpenH264VideoEncoder::SetRates(uint32_t newBitRate,
     
   int32_t newEncoderBitRate = newBitRate*1000; //kbps->bps
   encoder_->SetOption(ENCODER_OPTION_BITRATE, &newEncoderBitRate);
-  MOZ_MTLOG(ML_INFO, "Update Encoder Bandwidth: BitRate:\t"
+  MOZ_MTLOG(ML_INFO, "Update Encoder"
+            << m_iEncoderIdx
+            << "Bandwidth: BitRate:\t"
               << newBitRate
               << "\tkbps, FrameRate:"
               << frameRate);
