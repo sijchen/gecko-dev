@@ -266,15 +266,37 @@ int32_t WebrtcOpenH264VideoEncoder::SetChannelParameters(uint32_t packetLoss,
 
 int32_t WebrtcOpenH264VideoEncoder::SetRates(uint32_t newBitRate,
                                              uint32_t frameRate) {
+  //update bitrate if needed
+  int32_t existEncoderBitRate = 0;
   int32_t newEncoderBitRate = newBitRate*1000; //kbps->bps
-  int rv = encoder_->SetOption(ENCODER_OPTION_BITRATE, &newEncoderBitRate);
-  MOZ_MTLOG(ML_INFO, "Update Encoder Bandwidth: ReturnValue: "
-            << rv
-            << " BitRate: "
-            << newBitRate
-            << " kbps, FrameRate:"
-            << frameRate);
-    return (rv==cmResultSuccess)?WEBRTC_VIDEO_CODEC_OK:WEBRTC_VIDEO_CODEC_ERR_PARAMETER;
+  int rv = encoder_->GetOption(ENCODER_OPTION_BITRATE, &existEncoderBitRate);
+  if ( rv==cmResultSuccess && existEncoderBitRate!=newEncoderBitRate ) {
+    rv = encoder_->SetOption(ENCODER_OPTION_BITRATE, &newEncoderBitRate);
+    MOZ_MTLOG(ML_INFO, "Update Encoder Bandwidth: ReturnValue: "
+              << rv
+              << " BitRate(kbps): "
+              << newBitRate);
+  }
+  if (rv!=cmResultSuccess)
+    return WEBRTC_VIDEO_CODEC_ERROR;
+  
+  //update framerate if needed
+  float existFrameRate = 0;
+  float newFrameRate = 0;
+  rv = encoder_->GetOption(ENCODER_OPTION_FRAME_RATE, &existFrameRate);
+  if ( rv==cmResultSuccess &&
+      ( frameRate-existFrameRate>0.001f || existFrameRate-frameRate>0.001f ) ) {
+    newFrameRate = static_cast<float>(frameRate);
+    rv = encoder_->SetOption(ENCODER_OPTION_FRAME_RATE, &newFrameRate);
+    MOZ_MTLOG(ML_INFO, "Update Encoder Frame Rate: ReturnValue: "
+              << rv
+              << " FrameRate: "
+              << frameRate);
+  }
+  if (rv!=cmResultSuccess)
+    return WEBRTC_VIDEO_CODEC_ERROR;
+    
+  return WEBRTC_VIDEO_CODEC_OK;
 }
 
 
