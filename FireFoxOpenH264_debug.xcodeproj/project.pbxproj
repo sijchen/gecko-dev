@@ -1,0 +1,72 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXFileReference section */
+		A0D1D2AC187542BB00B92637 /* WebrtcOpenH264VideoCodec.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = WebrtcOpenH264VideoCodec.cpp; path = "../../../gecko-dev_sijia/gecko-dev/media/webrtc/signaling/src/media-conduit/WebrtcOpenH264VideoCodec.cpp"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		A0593358186807AC00976C41 = {
+			isa = PBXGroup;
+			children = (
+				A0D1D2AC187542BB00B92637 /* WebrtcOpenH264VideoCodec.cpp */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXProject section */
+		A0593359186807AC00976C41 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0500;
+			};
+			buildConfigurationList = A059335C186807AC00976C41 /* Build configuration list for PBXProject "FireFoxOpenH264" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = A0593358186807AC00976C41;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+			);
+		};
+/* End PBXProject section */
+
+/* Begin XCBuildConfiguration section */
+		A059335D186807AC00976C41 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		A059335E186807AC00976C41 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A059335C186807AC00976C41 /* Build configuration list for PBXProject "FireFoxOpenH264" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A059335D186807AC00976C41 /* Debug */,
+				A059335E186807AC00976C41 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A0593359186807AC00976C41 /* Project object */;
+}
