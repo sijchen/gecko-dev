@@ -34,8 +34,7 @@ namespace mozilla {
 
 #define OUTPUT_BITSTREAM
 //#define GET_TIMING
-    
-    
+ 
 //#define GET_TIMING_MZLOG
 //Usage:
 //    export NSPR_LOG_MODULES=openh264:X //X=5
@@ -245,6 +244,8 @@ void WebrtcOpenH264VideoEncoder::Encode_w(
   SFrameBSInfo encoded;
   SSourcePicture src;
 
+  MOZ_MTLOG(ML_INFO, "Required Frame Type at encoder "<< m_iEncoderIdx << " : " << frame_type);
+  
   src.iColorFormat = videoFormatI420;
   src.iStride[0] = inputImage->stride(webrtc::kYPlane);
   src.pData[0] = reinterpret_cast<unsigned char*>(
