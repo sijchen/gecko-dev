@@ -269,7 +269,6 @@ int32_t WebrtcOpenH264VideoEncoder::SetRates(uint32_t newBitRate,
   //update bitrate if needed
   int32_t existEncoderBitRate = 0;
   int rv = encoder_->GetOption(ENCODER_OPTION_BITRATE, &existEncoderBitRate);
-  
   int32_t newEncoderBitRate = newBitRate*1000; //kbps->bps
   if ( rv==cmResultSuccess && existEncoderBitRate!=newEncoderBitRate ) {
     rv = encoder_->SetOption(ENCODER_OPTION_BITRATE, &newEncoderBitRate);
